@@ -1,19 +1,21 @@
 {
-  "name": "frontend",
+  "name": "rustic-knights-frontend",
+  "private": true,
   "version": "0.1.0",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "babylonjs": "^7.44.0",
-    "babylonjs-loaders": "^7.44.0"
+    "@babylonjs/core": "^6.0.0"
   },
   "devDependencies": {
-    "vite": "^6.0.10"
+    "vite": "^5.0.0"
   }
 }
