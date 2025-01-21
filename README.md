@@ -58,6 +58,7 @@ cargo run
 ```bash
 cd frontend
 npx vite
+npm run dev
 ```
 
 3. Open your browser and navigate to `http://localhost:5173`
