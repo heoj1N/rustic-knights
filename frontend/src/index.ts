@@ -1,5 +1,5 @@
 import * as BABYLON from '@babylonjs/core';
-import { createGameScene } from './scenes/GameScene';
+import { ChessGame } from './game/ChessGame';
 
 // Types
 type PieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
@@ -25,35 +25,36 @@ const BLACK_COLOR = new BABYLON.Color3(0.2, 0.2, 0.2);
 const LIGHT_SQUARE_COLOR = new BABYLON.Color3(0.8, 0.8, 0.7);
 const DARK_SQUARE_COLOR = new BABYLON.Color3(0.4, 0.25, 0.15);
 
-const createScene = (engine: BABYLON.Engine): BABYLON.Scene => {
+const createScene = (): BABYLON.Scene => {
     const scene = new BABYLON.Scene(engine);
-    
-    // Camera setup
     const camera = new BABYLON.ArcRotateCamera(
         "Camera",
         Math.PI / 2,
         Math.PI / 3,
         15,
-        new BABYLON.Vector3(0, 0, 0),
+        BABYLON.Vector3.Zero(),
         scene
     );
     camera.attachControl(canvas, true);
     camera.lowerRadiusLimit = 8;
     camera.upperRadiusLimit = 20;
 
-    // Lighting
     const light = new BABYLON.HemisphericLight(
         "light",
-        new BABYLON.Vector3(0, 10, 0),
+        new BABYLON.Vector3(0, 1, 0),
         scene
     );
-    light.intensity = 0.7;
 
-    // Create the chess board
     createChessBoard(scene);
+    createInitialPieces(scene);
+
+    const chessGame = new ChessGame(scene);
     
-    // We'll implement pieces later
-    // createInitialPieces(scene);
+    scene.onPointerDown = (evt, pickInfo) => {
+        if (pickInfo) {
+            chessGame.handlePointerDown(pickInfo);
+        }
+    };
 
     return scene;
 };
@@ -117,6 +118,7 @@ const createPiece = (
     material.diffuseColor = color;
 
     const options: PieceMeshOptions = getPieceMeshOptions(type);
+    const colorName = isWhite ? 'white' : 'black';
 
     switch (type) {
         case 'pawn':
@@ -124,14 +126,14 @@ const createPiece = (
         case 'queen':
         case 'king':
             mesh = BABYLON.MeshBuilder.CreateCylinder(
-                `${type}_${x}_${z}`,
+                `piece_${type}_${colorName}_${x}_${z}`,
                 options,
                 scene
             );
             break;
         case 'rook':
             mesh = BABYLON.MeshBuilder.CreateBox(
-                `${type}_${x}_${z}`,
+                `piece_${type}_${colorName}_${x}_${z}`,
                 options,
                 scene
             );
@@ -139,7 +141,7 @@ const createPiece = (
         case 'bishop':
             // Use CreateCylinder as a cone, setting the top diameter to 0
             mesh = BABYLON.MeshBuilder.CreateCylinder(
-                `${type}_${x}_${z}`,
+                `piece_${type}_${colorName}_${x}_${z}`,
                 {
                   height: options.height,
                   diameterTop: 0,                          // <---- key for cone
@@ -178,24 +180,13 @@ const getPieceMeshOptions = (type: PieceType): PieceMeshOptions => {
     }
 };
 
-window.addEventListener('DOMContentLoaded', () => {
-    try {
-        const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
-        if (!canvas) {
-            throw new Error('Canvas element not found');
-        }
-        
-        const engine = new BABYLON.Engine(canvas, true);
-        const scene = createGameScene(engine, canvas);
-        
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
+const engine = new BABYLON.Engine(canvas, true);
+const scene = createScene();
 
-        window.addEventListener('resize', () => {
-            engine.resize();
-        });
-    } catch (error) {
-        console.error('Initialization error:', error);
-    }
+engine.runRenderLoop(() => {
+    scene.render();
+});
+
+window.addEventListener('resize', () => {
+    engine.resize();
 }); 
