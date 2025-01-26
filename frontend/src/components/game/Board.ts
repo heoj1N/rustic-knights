@@ -25,9 +25,61 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
             square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
             square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
 
-            const material = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, scene);
-            material.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
-            square.material = material;
+            // Create default material
+            const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, scene);
+            defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
+            
+            // Create highlight material
+            const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
+            highlightMaterial.diffuseColor = (x + z) % 2 === 0 ? 
+            COLORS.LIGHT_SQUARE.scale(1.3) : // Lighter highlight for light squares
+            COLORS.DARK_SQUARE.scale(1.3);   // Lighter highlight for dark squares
+            highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
+
+            square.material = defaultMaterial;
+
+            // Add action manager
+            square.actionManager = new BABYLON.ActionManager(scene);
+
+            // Hover effects
+            square.actionManager.registerAction(
+                new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOverTrigger,
+                    () => {
+                        square.scaling = new BABYLON.Vector3(1, 1.1, 1);
+                        square.material = 
+                            square.material === defaultMaterial ? 
+                            highlightMaterial : 
+                            defaultMaterial;
+                    }
+                )
+            );
+
+            square.actionManager.registerAction(
+                new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPointerOutTrigger,
+                    () => {
+                        square.scaling = new BABYLON.Vector3(1, 1, 1);
+                        square.material = 
+                            square.material === defaultMaterial ? 
+                            highlightMaterial : 
+                            defaultMaterial;
+                    }
+                )
+            );
+
+            // Click effect
+            // square.actionManager.registerAction(
+            //     new BABYLON.ExecuteCodeAction(
+            //         BABYLON.ActionManager.OnPickTrigger,
+            //         () => {
+            //             square.material = 
+            //                 square.material === defaultMaterial ? 
+            //                 highlightMaterial : 
+            //                 defaultMaterial;
+            //         }
+            //     )
+            // );
         }
     }
 };

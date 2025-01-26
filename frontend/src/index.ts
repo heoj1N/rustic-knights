@@ -1,5 +1,6 @@
 import * as BABYLON from '@babylonjs/core';
 import { ChessGame } from './game/ChessGame';
+import { createChessBoard } from './components/game/Board';
 
 // Types
 type PieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
@@ -22,8 +23,6 @@ const BOARD_OFFSET = (BOARD_SIZE * SQUARE_SIZE) / 2;
 // Colors
 const WHITE_COLOR = new BABYLON.Color3(0.9, 0.9, 0.9);
 const BLACK_COLOR = new BABYLON.Color3(0.2, 0.2, 0.2);
-const LIGHT_SQUARE_COLOR = new BABYLON.Color3(0.8, 0.8, 0.7);
-const DARK_SQUARE_COLOR = new BABYLON.Color3(0.4, 0.25, 0.15);
 
 const createScene = (): BABYLON.Scene => {
     const scene = new BABYLON.Scene(engine);
@@ -57,37 +56,6 @@ const createScene = (): BABYLON.Scene => {
     };
 
     return scene;
-};
-
-const createChessBoard = (scene: BABYLON.Scene): void => {
-    // Create ground plane
-    const ground = BABYLON.MeshBuilder.CreateGround(
-        "ground",
-        { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
-        scene
-    );
-    const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
-    groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-    ground.material = groundMaterial;
-    ground.position.y = -0.1;
-
-    // Create chess board squares
-    for (let x = 0; x < BOARD_SIZE; x++) {
-        for (let z = 0; z < BOARD_SIZE; z++) {
-            const square = BABYLON.MeshBuilder.CreateBox(
-                `square_${x}_${z}`,
-                { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
-                scene
-            );
-
-            square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
-            square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-
-            const material = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, scene);
-            material.diffuseColor = (x + z) % 2 === 0 ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR;
-            square.material = material;
-        }
-    }
 };
 
 const createInitialPieces = (scene: BABYLON.Scene): void => {
@@ -161,7 +129,6 @@ const createPiece = (
 
     return mesh;
 };
-
 
 const getPieceMeshOptions = (type: PieceType): PieceMeshOptions => {
     switch (type) {
