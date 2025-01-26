@@ -1,5 +1,5 @@
 import * as BABYLON from '@babylonjs/core';
-import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../../utils/constants';
+import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../utils/constants';
 
 export const createChessBoard = (scene: BABYLON.Scene): void => {
     // Create ground plane
@@ -32,13 +32,11 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
             // Create highlight material
             const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
             highlightMaterial.diffuseColor = (x + z) % 2 === 0 ? 
-            COLORS.LIGHT_SQUARE.scale(1.3) : // Lighter highlight for light squares
-            COLORS.DARK_SQUARE.scale(1.3);   // Lighter highlight for dark squares
+            COLORS.LIGHT_SQUARE.scale(1.3) : 
+            COLORS.DARK_SQUARE.scale(1.3);
             highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
 
             square.material = defaultMaterial;
-
-            // Add action manager
             square.actionManager = new BABYLON.ActionManager(scene);
 
             // Hover effects
@@ -80,6 +78,9 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
             //         }
             //     )
             // );
+
+
+
         }
     }
 };

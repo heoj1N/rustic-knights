@@ -1,8 +1,25 @@
 import * as BABYLON from '@babylonjs/core';
-import { PieceType, PieceMeshOptions } from '../../types';
-import { BOARD_OFFSET, SQUARE_SIZE, COLORS } from '../../utils/constants';
+import { BOARD_OFFSET, SQUARE_SIZE, COLORS } from '../utils/constants';
 
-export const createPiece = (type: PieceType, isWhite: boolean, x: number, z: number, scene: BABYLON.Scene): BABYLON.Mesh => {
+interface PieceMeshOptions {
+    height: number;
+    diameter?: number;
+    diameterTop?: number;
+    diameterBottom?: number;
+    width?: number;
+    depth?: number;
+}
+
+// Types
+type PieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
+
+export const createPiece = (
+    type: PieceType, 
+    isWhite: boolean, 
+    x: number, 
+    z: number, 
+    scene: BABYLON.Scene
+): BABYLON.Mesh => {
     let mesh: BABYLON.Mesh;
     const color = isWhite ? COLORS.WHITE : COLORS.BLACK;
     const material = new BABYLON.StandardMaterial(`${type}_material`, scene);

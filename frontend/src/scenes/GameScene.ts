@@ -1,10 +1,13 @@
 import * as BABYLON from '@babylonjs/core';
-import { createChessBoard } from '../components/game/Board';
-import { createInitialPieces } from '../components/game/Pieces';
+import { createChessBoard } from '../game/Board';
+import { createInitialPieces } from '../game/Pieces';
+import { ChessGame } from '../game/ChessGame';
 
-export const createGameScene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement): BABYLON.Scene => {
+export const createGameScene = (
+    engine: BABYLON.Engine, 
+    canvas: HTMLCanvasElement
+): BABYLON.Scene => {
     const scene = new BABYLON.Scene(engine);
-    
     const camera = new BABYLON.ArcRotateCamera(
         "Camera",
         Math.PI / 2,
@@ -16,18 +19,27 @@ export const createGameScene = (engine: BABYLON.Engine, canvas: HTMLCanvasElemen
     camera.attachControl(canvas, true);
     camera.lowerRadiusLimit = 8;
     camera.upperRadiusLimit = 20;
-
     const light = new BABYLON.HemisphericLight(
         "light",
         new BABYLON.Vector3(0, 10, 0),
         scene
     );
     light.intensity = 0.7;
-
     scene.clearColor = new BABYLON.Color4(0.2, 0.2, 0.3, 1);
 
+    // Setup Chessboard
     createChessBoard(scene);
     createInitialPieces(scene);
+
+    // Setup ChessGame
+    const chessGame = new ChessGame(scene);
+
+    // Handle Pointer Down
+    scene.onPointerDown = (evt, pickInfo) => {
+        if (pickInfo) {
+            chessGame.handlePointerDown(pickInfo);
+        }
+    };
 
     return scene;
 };
