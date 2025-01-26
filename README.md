@@ -1,24 +1,16 @@
 # Rustic-Knights
 
 <div align="center">
-  <img src="assets/rustic-knigths.png" alt="Rustic Knights Logo" width="400"/>
-  <h1>Rustic Knights</h1>
-  <p>A modern, immersive 3D chess game powered by Rust and Babylon.js</p>
+  <img src="assets/rustic-knigths.png" alt="Rustic Knights Logo" width="700"/>
+  <h1></h1>
+  <p></p>
 </div>
 
-## 🎮 Overview
+## Overview
 
 Rustic Knights combines the classic game of chess with modern 3D graphics and real-time multiplayer capabilities. Built with a robust Rust backend and an immersive Babylon.js frontend, it offers a unique chess-playing experience.
 
-## ✨ Features
-
-- 🎨 Immersive 3D graphics powered by Babylon.js
-- ⚡ High-performance Rust backend
-- 🔄 Real-time multiplayer gameplay
-- 🎯 Intuitive controls and camera movement
-- 🏰 Beautiful chess piece models and animations
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -63,36 +55,23 @@ npm run dev
 
 3. Open your browser and navigate to `http://localhost:5173`
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Backend**
   - Rust
-  - Axum (Web Framework)
-  - Tokio (Async Runtime)
-  - Serde (Serialization)
 
 - **Frontend**
   - Babylon.js
   - JavaScript
   - Vite (Build Tool)
+  - React
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- Chess piece models and textures
 - Babylon.js community
 - All contributors and supporters
 
