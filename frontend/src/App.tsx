@@ -18,6 +18,7 @@ function App() {
       )}
       {gameState === 'paused' && (
         <div className="pause-menu">
+          <h1>Game Paused ...</h1>
           <button onClick={() => setGameState('playing')}>Resume</button>
           <button onClick={() => setGameState('menu')}>Main Menu</button>
         </div>

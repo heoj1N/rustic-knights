@@ -7,7 +7,7 @@ interface MainMenuProps {
 function MainMenu({ onStartGame }: MainMenuProps) {
   return (
     <div className="main-menu">
-      <h1>Chess Game</h1>
+      <h1>Rustic Knights</h1>
       <button onClick={onStartGame}>Start Game</button>
       <button>Settings</button>
       <button>How to Play</button>

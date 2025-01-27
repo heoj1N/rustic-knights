@@ -1,0 +1,36 @@
+:root {
+    --primary-color: #cc5500; /* Rust color */
+    --secondary-color: #ff7f50; /* Coral */
+    --background-color: #f5f5f5; /* Light gray */
+    --text-color: #333333; /* Dark gray */
+  }
+  
+  body {
+    background-color: var(--background-color);
+    background-image: url('../../assets/menu_background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.9;
+    color: var(--text-color);
+    overflow: hidden;
+  }
+  
+  button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+  }
+  
+  button:hover {
+    background-color: var(--secondary-color);
+  }
+
+  h1 {
+    /* color: var(--primary-color); */
+    font-family: 'Luminari', fantasy;
+    font-size: 50px;
+    margin-bottom: 20px;
+  }
