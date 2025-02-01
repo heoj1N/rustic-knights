@@ -36,6 +36,7 @@ cargo build
 ```bash
 cd frontend
 npm install
+npm install react react-dom @types/react @types/react-do
 ```
 
 ### Running the Application

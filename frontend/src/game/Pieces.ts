@@ -1,5 +1,6 @@
 import * as BABYLON from '@babylonjs/core';
 import { BOARD_OFFSET, SQUARE_SIZE, COLORS } from '../utils/constants';
+import { ChessPieceType } from '../types/chess';
 
 interface PieceMeshOptions {
     height: number;
@@ -10,11 +11,8 @@ interface PieceMeshOptions {
     depth?: number;
 }
 
-// Types
-type PieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
-
 export const createPiece = (
-    type: PieceType, 
+    type: ChessPieceType, 
     isWhite: boolean, 
     x: number, 
     z: number, 
@@ -61,7 +59,7 @@ export const createPiece = (
     return mesh;
 };
 
-export const getPieceMeshOptions = (type: PieceType): PieceMeshOptions => {
+export const getPieceMeshOptions = (type: ChessPieceType): PieceMeshOptions => {
     switch (type) {
         case 'pawn':
             return { height: 0.75, diameter: 0.3 };
@@ -86,7 +84,7 @@ export const createInitialPieces = (scene: BABYLON.Scene): void => {
     }
 
     // Create other pieces
-    const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+    const pieceOrder: ChessPieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
     pieceOrder.forEach((piece, i) => {
         createPiece(piece, true, i, 0, scene);  // White pieces
         createPiece(piece, false, i, 7, scene); // Black pieces

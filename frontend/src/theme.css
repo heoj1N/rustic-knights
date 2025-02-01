@@ -32,5 +32,6 @@
     /* color: var(--primary-color); */
     font-family: 'Luminari', fantasy;
     font-size: 50px;
-    margin-bottom: 20px;
+    margin-bottom: 0px;
+    margin-top: 0px;
   }

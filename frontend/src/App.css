@@ -25,7 +25,9 @@
   }
 
   .main-menu button {
-    margin: 10px 0; /* Vertical spacing */
+    width: 200px;  /* Fixed width for all buttons */
+    padding: 15px 0;  /* Vertical padding */
+    margin: 5px 0;  /* Consistent margin */
     padding: 6px 15px; /* Adjust padding for size */
     border-radius: 10px; /* Makes the button round */
     border: none; /* Removes default border */
@@ -61,7 +63,9 @@
   }
 
   .pause-menu button {
-    margin: 10px 0; /* Vertical spacing */
+    width: 200px;  /* Fixed width for all buttons */
+    padding: 15px 0;  /* Vertical padding */
+    margin: 5px 0;  /* Consistent margin */
     padding: 6px 15px; /* Adjust padding for size */
     border-radius: 10px; /* Makes the button round */
     border: none; /* Removes default border */
