@@ -1,0 +1,11 @@
+Model Information:
+* title:	Chess pieces
+* source:	https://sketchfab.com/3d-models/chess-pieces-6c30b70322ff4ebfb5874cf51a4e2bba
+* author:	nikolokko (https://sketchfab.com/nikolokko)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Chess pieces" (https://sketchfab.com/3d-models/chess-pieces-6c30b70322ff4ebfb5874cf51a4e2bba) by nikolokko (https://sketchfab.com/nikolokko) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

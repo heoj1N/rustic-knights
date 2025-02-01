@@ -8,17 +8,7 @@ export const createGameScene = (
     canvas: HTMLCanvasElement
 ): BABYLON.Scene => {
     const scene = new BABYLON.Scene(engine);
-    const camera = new BABYLON.ArcRotateCamera(
-        "Camera",
-        Math.PI / 2,
-        Math.PI / 3,
-        15,
-        new BABYLON.Vector3(0, 0, 0),
-        scene
-    );
-    camera.attachControl(canvas, true);
-    camera.lowerRadiusLimit = 8;
-    camera.upperRadiusLimit = 20;
+    setupCamera(scene, canvas);
     const light = new BABYLON.HemisphericLight(
         "light",
         new BABYLON.Vector3(0, 10, 0),
@@ -42,4 +32,34 @@ export const createGameScene = (
     };
 
     return scene;
+};
+
+const setupCamera = (scene: BABYLON.Scene, canvas: HTMLCanvasElement) => {
+    const camera = new BABYLON.ArcRotateCamera(
+        "Camera",
+        Math.PI / 2,  // Initial alpha - facing white's side
+        Math.PI / 3,  // beta
+        12,           // radius
+        BABYLON.Vector3.Zero(),
+        scene
+    );
+
+    // Set initial position
+    camera.setPosition(new BABYLON.Vector3(0, 8, -12));
+    
+    camera.attachControl(canvas, true);
+    
+    // Set radius limits (zoom)
+    camera.lowerRadiusLimit = 8;
+    camera.upperRadiusLimit = 20;
+    
+    // Limit vertical rotation (beta)
+    camera.lowerBetaLimit = 0.1;
+    camera.upperBetaLimit = Math.PI / 2.2;
+    
+    // Limit horizontal rotation (alpha) to 90 degrees each side from initial position
+    camera.lowerAlphaLimit = Math.PI;           // 90 degrees left from initial
+    camera.upperAlphaLimit = 2*Math.PI;     // 90 degrees right from initial
+    
+    return camera;
 };
