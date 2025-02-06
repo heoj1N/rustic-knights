@@ -1,30 +1,24 @@
-use axum::{
-    routing::get,
-    Router,
-    response::Json,
-    http::{HeaderValue, Method},
-    middleware::from_fn,
-};
-use tower_http::cors::CorsLayer;
-use serde_json;
+// src/main.rs
+use actix_web::{web, App, HttpServer};
+use actix_web_actors::ws;
+mod handlers;
+mod models;
+mod db;
 
-#[tokio::main]
-async fn main() {
-    // Add CORS middleware to allow requests from frontend
-    let cors = CorsLayer::new()
-        .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
-        .allow_methods([Method::GET, Method::POST])
-        .allow_headers(tower_http::cors::Any);
-
-    let app = Router::new()
-        .route("/api/health", get(|| async { 
-            Json(serde_json::json!({ "status": "ok" }))
-        }))
-        .layer(cors);
-
-    println!("Server running on http://localhost:3000");
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let db = db::mongodb::connect().await.expect("Failed to connect to MongoDB");
+    
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(db.clone()))
+            .service(handlers::auth::login)
+            .service(handlers::auth::register)
+            .service(web::resource("/ws/game/{game_id}").route(web::get().to(handlers::websocket::game_ws)))
+            .service(handlers::game::create_game)
+            .service(handlers::game::join_game)
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }

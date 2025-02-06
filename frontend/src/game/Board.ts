@@ -3,12 +3,11 @@ import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../utils/constant
 
 export const createChessBoard = (scene: BABYLON.Scene): void => {
 
-    // Create ground plane
     const ground = BABYLON.MeshBuilder.CreateGround(
         "ground",
         { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
         scene
-    );
+    ); // Create ground plane
     const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
     groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
     ground.material = groundMaterial;
@@ -67,7 +66,6 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
         }
     }
 
-    // Create label tiles
     const createLabelTile = (text: string, x: number, z: number, isFile: boolean) => {
         // Create tile
         const tile = BABYLON.MeshBuilder.CreateBox(
@@ -150,7 +148,4 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
         // Right column
         createLabelTile((8 - rank).toString(), 8, rank, false);
     }
-
-
 };
-

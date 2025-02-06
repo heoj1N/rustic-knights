@@ -25,7 +25,7 @@ export const createGameScene = (
     const chessGame = new ChessGame(scene);
 
     // Handle Pointer Down
-    scene.onPointerDown = (evt, pickInfo) => {
+    scene.onPointerDown = (_evt, pickInfo) => {
         if (pickInfo) {
             chessGame.handlePointerDown(pickInfo);
         }
@@ -46,7 +46,6 @@ const setupCamera = (scene: BABYLON.Scene, canvas: HTMLCanvasElement) => {
 
     // Set initial position
     camera.setPosition(new BABYLON.Vector3(0, 8, -12));
-    
     camera.attachControl(canvas, true);
     
     // Set radius limits (zoom)
@@ -58,7 +57,7 @@ const setupCamera = (scene: BABYLON.Scene, canvas: HTMLCanvasElement) => {
     camera.upperBetaLimit = Math.PI / 2.2;
     
     // Limit horizontal rotation (alpha) to 90 degrees each side from initial position
-    camera.lowerAlphaLimit = Math.PI;           // 90 degrees left from initial
+    camera.lowerAlphaLimit = Math.PI;       // 90 degrees left from initial
     camera.upperAlphaLimit = 2*Math.PI;     // 90 degrees right from initial
     
     return camera;

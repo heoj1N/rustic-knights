@@ -1,6 +1,8 @@
 import * as BABYLON from '@babylonjs/core';
-import { BOARD_OFFSET, SQUARE_SIZE, COLORS } from '../utils/constants';
+import { BOARD_OFFSET, COLORS, SQUARE_SIZE } from '../utils/constants';
 import { ChessPieceType } from '../types/chess';
+
+export let selectedPiece: BABYLON.Mesh | null = null;
 
 interface PieceMeshOptions {
     height: number;
@@ -18,34 +20,47 @@ export const createPiece = (
     z: number, 
     scene: BABYLON.Scene
 ): BABYLON.Mesh => {
+
     let mesh: BABYLON.Mesh;
     const color = isWhite ? COLORS.WHITE : COLORS.BLACK;
     const material = new BABYLON.StandardMaterial(`${type}_material`, scene);
     material.diffuseColor = color;
-
     const options = getPieceMeshOptions(type);
+
+    // Create highlight material
+    const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
+    highlightMaterial.diffuseColor = (x + z) % 2 === 0 ? 
+    COLORS.LIGHT_SQUARE.scale(1.3) : 
+    COLORS.DARK_SQUARE.scale(1.3);
+    highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
 
     switch (type) {
         case 'pawn':
         case 'knight':
         case 'queen':
         case 'king':
-            mesh = BABYLON.MeshBuilder.CreateCylinder(`${type}_${x}_${z}`, options, scene);
+            mesh = BABYLON.MeshBuilder.CreateCylinder(
+                `${type}_${x}_${z}`, options, scene
+            );
+            setupPieceInteractions(mesh, material, highlightMaterial, scene);
             break;
         case 'rook':
-            mesh = BABYLON.MeshBuilder.CreateBox(`${type}_${x}_${z}`, options, scene);
+            mesh = BABYLON.MeshBuilder.CreateBox(
+                `${type}_${x}_${z}`, options, scene
+            );
+            setupPieceInteractions(mesh, material, highlightMaterial, scene);
             break;
         case 'bishop':
-            // Use CreateCylinder as a cone, setting the top diameter to 0
             mesh = BABYLON.MeshBuilder.CreateCylinder(
                 `${type}_${x}_${z}`,
                 {
                     height: options.height,
-                    diameterTop: 0,                          // <---- key for cone
-                    diameterBottom: options.diameter || 0.3, // or use diameterBottom if you want
+                    diameterTop: 0,
+                    diameterBottom: options.diameter || 0.3,
                 },
                 scene
             );
+            setupPieceInteractions(mesh, material, highlightMaterial, scene);
             break;
         default:
             throw new Error(`Unknown piece type: ${type}`);
@@ -82,11 +97,68 @@ export const createInitialPieces = (scene: BABYLON.Scene): void => {
         createPiece('pawn', true, i, 1, scene);  // White pawns
         createPiece('pawn', false, i, 6, scene); // Black pawns
     }
-
     // Create other pieces
-    const pieceOrder: ChessPieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+    const pieceOrder: ChessPieceType[] = [
+        'rook',  'knight', 'bishop', 'queen', 
+        'king', 'bishop', 'knight', 'rook'
+    ];
     pieceOrder.forEach((piece, i) => {
         createPiece(piece, true, i, 0, scene);  // White pieces
         createPiece(piece, false, i, 7, scene); // Black pieces
     });
+};
+
+const setupPieceInteractions = (
+    mesh: BABYLON.Mesh, 
+    material: BABYLON.StandardMaterial, 
+    highlightMaterial: BABYLON.StandardMaterial,
+    scene: BABYLON.Scene
+) => {
+    mesh.actionManager = new BABYLON.ActionManager(scene);
+    
+    mesh.actionManager.registerAction(
+        new BABYLON.ExecuteCodeAction(
+            BABYLON.ActionManager.OnPointerOverTrigger,
+            () => {
+                if (mesh !== selectedPiece) {
+                    mesh.scaling = new BABYLON.Vector3(1, 1.1, 1);
+                }
+            }
+        )
+    );
+
+    mesh.actionManager.registerAction(
+        new BABYLON.ExecuteCodeAction(
+            BABYLON.ActionManager.OnPointerOutTrigger,
+            () => {
+                if (mesh !== selectedPiece) {
+                    mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+                }
+            }
+        )
+    );
+
+    mesh.actionManager.registerAction(
+        new BABYLON.ExecuteCodeAction(
+            BABYLON.ActionManager.OnPickTrigger,
+            () => {
+                // Deselect current piece if exists
+                if (selectedPiece) {
+                    selectedPiece.scaling = new BABYLON.Vector3(1, 1, 1);
+                    selectedPiece.material = material;
+                }
+
+                // If clicking the same piece, deselect it
+                if (selectedPiece === mesh) {
+                    selectedPiece = null;
+                    return;
+                }
+
+                // Select new piece
+                selectedPiece = mesh;
+                mesh.scaling = new BABYLON.Vector3(1, 1.2, 1);
+                mesh.material = highlightMaterial;
+            }
+        )
+    );
 };
