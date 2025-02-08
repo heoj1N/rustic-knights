@@ -2,24 +2,28 @@ import { Position } from '../../types/chess';
 import { MoveValidationParams } from './validation';
 
 export const isValidPawnMove = ({ from, to, isWhite, board }: MoveValidationParams): boolean => {
+    console.log('Validating pawn move:', { from, to, isWhite });
     const direction = isWhite ? 1 : -1;
     const startRank = isWhite ? 1 : 6;
     
     // Basic forward movement
     if (from.x === to.x && to.y === from.y + direction) {
-        return !getPieceAt(to, board);
+        const targetPiece = getPieceAt(to, board);
+        return !targetPiece;
     }
     
     // Initial two-square movement
     if (from.x === to.x && from.y === startRank && to.y === from.y + 2 * direction) {
         const intermediatePos = { x: from.x, y: from.y + direction };
-        return !getPieceAt(intermediatePos, board) && !getPieceAt(to, board);
+        const intermediatePiece = getPieceAt(intermediatePos, board);
+        const targetPiece = getPieceAt(to, board);
+        return !intermediatePiece && !targetPiece;
     }
     
     // Capture moves
     if (Math.abs(to.x - from.x) === 1 && to.y === from.y + direction) {
         const pieceAtTarget = getPieceAt(to, board);
-        return pieceAtTarget && pieceAtTarget.isWhite !== isWhite;
+        return pieceAtTarget && pieceAtTarget.color !== (isWhite ? 'white' : 'black');
     }
     
     return false;
