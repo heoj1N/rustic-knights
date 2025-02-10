@@ -7,7 +7,6 @@ interface GameViewProps {
 }
 
 function GameView({ onPause }: GameViewProps) {
-  
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

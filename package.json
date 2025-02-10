@@ -7,12 +7,33 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
-    "build": "npm run build --workspace=frontend"
+    "build": "npm run build --workspace=frontend",
+    "lint": "eslint \"frontend/src/**/*.{js,ts,tsx}\"",
+    "lint:fix": "eslint \"frontend/src/**/*.{js,ts,tsx}\" --fix",
+    "format": "prettier --write \"frontend/src/**/*.{js,ts,tsx}\"",
+    "format:check": "prettier --check \"frontend/src/**/*.{js,ts,tsx}\"",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{js,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.23.0",
+    "@typescript-eslint/parser": "^8.23.0",
+    "eslint": "^9.20.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.5.0"
   }
 }

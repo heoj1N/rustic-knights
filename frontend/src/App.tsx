@@ -10,12 +10,8 @@ function App() {
 
   return (
     <div className="app">
-      {gameState === 'menu' && (
-        <MainMenu onStartGame={() => setGameState('playing')} />
-      )}
-      {gameState === 'playing' && (
-        <GameView onPause={() => setGameState('paused')} />
-      )}
+      {gameState === 'menu' && <MainMenu onStartGame={() => setGameState('playing')} />}
+      {gameState === 'playing' && <GameView onPause={() => setGameState('paused')} />}
       {gameState === 'paused' && (
         <div className="pause-menu">
           <h1>Game Paused ...</h1>
