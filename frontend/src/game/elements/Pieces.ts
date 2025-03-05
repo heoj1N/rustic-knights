@@ -18,6 +18,7 @@ interface PieceMeshOptions {
 }
 
 export abstract class Piece {
+  
   protected mesh: AbstractMesh;
   protected position: Position;
   protected isWhite: boolean;

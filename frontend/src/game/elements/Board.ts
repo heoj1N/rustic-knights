@@ -4,6 +4,28 @@ import { Scene } from '@babylonjs/core';
 import { Square } from './Pieces';
 import { Position } from '../../types/chess';
 
+export class Board {
+  private squares: Map<string, Square> = new Map();
+  private scene: Scene;
+
+  constructor(scene: Scene) {
+    this.scene = scene;
+    this.initializeBoard();
+  }
+
+  public getSquare(position: Position): Square | undefined {
+    return this.squares.get(this.getSquareKey(position));
+  }
+
+  private getSquareKey(position: Position): string {
+    return `${position.x},${position.y}`;
+  }
+
+  private initializeBoard(): void {
+    // Initialize squares and pieces
+  }
+}
+
 export const createChessBoard = (scene: BABYLON.Scene): void => {
   const ground = BABYLON.MeshBuilder.CreateGround(
     'ground',
@@ -71,7 +93,8 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
 
     // Create material
     const material = new BABYLON.StandardMaterial(`label_material_${x}_${z}`, scene);
-    material.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Gray color
+    // material.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Gray color
+    material.diffuseColor = new BABYLON.Color3(183/255, 65/255, 14/255); // Gray color
     tile.material = material;
 
     // Create dynamic texture for text
@@ -95,69 +118,73 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
 
     // Rotate text for rank labels (numbers)
     if (!isFile) {
-      tile.rotation.y = -Math.PI / 2;
+      // Rank labels on left side face outward, right side face inward
+      tile.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
+    } else {
+      // File labels (letters) rotation
+      if (z < 0) {
+        // Bottom row - rotate to face the bottom player
+        tile.rotation.y = Math.PI / 2;
+      } else {
+        // Top row - rotate to face the top player
+        tile.rotation.y = -Math.PI / 2;
+      }
     }
   };
 
-  // Create corner tiles
-  const createCornerTile = (x: number, z: number) => {
-    const tile = BABYLON.MeshBuilder.CreateBox(
-      `corner_${x}_${z}`,
-      { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
-      scene
-    );
-
-    tile.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
-    tile.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-    tile.position.y = 0;
-
-    const material = new BABYLON.StandardMaterial(`corner_material_${x}_${z}`, scene);
-    material.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Same gray as label tiles
-    tile.material = material;
-  };
-
-  // Create the four corner tiles
-  createCornerTile(-1, -1); // Bottom-left corner
-  createCornerTile(-1, 8); // Top-left corner
-  createCornerTile(8, -1); // Bottom-right corner
-  createCornerTile(8, 8); // Top-right corner
-
-  // Create file labels (a-h)
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   files.forEach((file, index) => {
-    // Bottom row
     createLabelTile(file, index, -1, true);
-    // Top row
     createLabelTile(file, index, 8, true);
   });
 
-  // Create rank labels (1-8)
   for (let rank = 0; rank < 8; rank++) {
-    // Left column
-    createLabelTile((8 - rank).toString(), -1, rank, false);
-    // Right column
-    createLabelTile((8 - rank).toString(), 8, rank, false);
+    createLabelTile((rank + 1).toString(), -1, rank, false);
+    createLabelTile((rank + 1).toString(), 8, rank, false);
   }
 };
 
-export class Board {
-  private squares: Map<string, Square> = new Map();
-  private scene: Scene;
+export const createExtendedGrid = (scene: BABYLON.Scene): void => {
+    // Create infinite ground plane first
+    const ground = BABYLON.MeshBuilder.CreateGround(
+        "ground",
+        { width: 1000, height: 1000 },
+        scene
+    );
+    const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+    groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    ground.material = groundMaterial;
+    ground.position.y = -0.1;
 
-  constructor(scene: Scene) {
-    this.scene = scene;
-    this.initializeBoard();
-  }
+    // Calculate the extent based on the chess board size
+    const boardStart = -1; // First label tile position
+    const boardEnd = 8;    // Last label tile position
+    const extendedSize = 20; // How far we want to extend from the board edges
 
-  public getSquare(position: Position): Square | undefined {
-    return this.squares.get(this.getSquareKey(position));
-  }
+    // Create extended grid
+    for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
+        for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
+            const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
+            const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
+            
+            if (isInBoardArea && !isCornerTile) {
+                continue;
+            }
 
-  private getSquareKey(position: Position): string {
-    return `${position.x},${position.y}`;
-  }
+            const square = BABYLON.MeshBuilder.CreateBox(
+                `extended_square_${x}_${z}`,
+                { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
+                scene
+            );
 
-  private initializeBoard(): void {
-    // Initialize squares and pieces
-  }
-}
+            square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+            square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+
+            const material = new BABYLON.StandardMaterial(`extended_square_material_${x}_${z}`, scene);
+            material.diffuseColor = (x + z) % 2 === 0 ? COLORS.EXTENDED_LIGHT : COLORS.EXTENDED_DARK;
+            square.material = material;
+        }
+    }
+};
+
+
