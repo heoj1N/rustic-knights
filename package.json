@@ -10,10 +10,11 @@
     "dev": "npm run dev --workspace=frontend",
     "build": "npm run build --workspace=frontend",
     "lint": "eslint \"frontend/src/**/*.{js,ts,tsx}\"",
-    "lint:fix": "eslint \"frontend/src/**/*.{js,ts,tsx}\" --fix",
+    "lint:fix": "eslint \"frontend/src/**/*.{js,ts,tsx}\"",
     "format": "prettier --write \"frontend/src/**/*.{js,ts,tsx}\"",
     "format:check": "prettier --check \"frontend/src/**/*.{js,ts,tsx}\"",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@types/react": "^19.0.8",
@@ -23,7 +24,7 @@
   },
   "lint-staged": {
     "frontend/src/**/*.{js,ts,tsx}": [
-      "eslint --fix",
+      "eslint",
       "prettier --write"
     ]
   },
