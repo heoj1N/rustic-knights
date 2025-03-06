@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as BABYLON from '@babylonjs/core';
-import { createGameScene } from '../scenes/GameScene';
+import { createGameScene } from '../game/elements/GameScene';
 
 interface GameViewProps {
   onPause: () => void;

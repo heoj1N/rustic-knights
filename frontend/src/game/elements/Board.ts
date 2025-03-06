@@ -1,32 +1,154 @@
 import * as BABYLON from '@babylonjs/core';
-import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../../utils/constants';
-import { Scene } from '@babylonjs/core';
-import { Square } from './Pieces';
-import { Position } from '../../types/chess';
+import { Scene, AbstractMesh } from '@babylonjs/core';
+import { Square } from './Square';
+import { Position, ChessPieceType } from '../../types/chess';
+import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../../util/constants';
+import { Piece, createPiece } from './Piece';
 
 export class Board {
+  
   private squares: Map<string, Square> = new Map();
   private scene: Scene;
 
   constructor(scene: Scene) {
     this.scene = scene;
-    this.initializeBoard();
+    this.initializeBoard(scene);
+  }
+
+  public initializeBoard(scene: Scene): void {
+
+    const pieces = scene.meshes.filter((mesh) => mesh && this.isPiece(mesh));
+    
+    if (!pieces || pieces.length === 0) {
+      console.warn('No chess pieces found in the scene');
+      return;
+    }
+
+    pieces.forEach((piece) => {
+      const match = piece.name.match(/^(pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
+      if (!match) return;
+
+      const [_, type, x, y] = match;
+      const position = { x: parseInt(x), y: parseInt(y) };
+      const color = parseInt(y) <= 1 ? 'white' : 'black';
+      const xNum = parseInt(x);
+      const yNum = parseInt(y);
+      const mesh = createPiece(type as ChessPieceType, color === 'white', xNum, yNum, this.scene);
+      const square = this.squares.get(this.getBoardKey(position));
+      if (square) {
+        square.setPiece(new Piece(mesh, position, color === 'white', type as ChessPieceType));
+      }
+    });
+
+    this.printBoardState();
+    this.printPieceNames();
+
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      for (let y = 0; y < BOARD_SIZE; y++) {
+        const mesh = this.scene.getMeshByName(`square_${x}_${y}`);
+        if (mesh) {
+          const position = { x, y };
+          const square = new Square(mesh, position);
+          this.squares.set(this.getSquareKey(position), square);
+        }
+      }
+    }
   }
 
   public getSquare(position: Position): Square | undefined {
     return this.squares.get(this.getSquareKey(position));
   }
 
-  private getSquareKey(position: Position): string {
+  public getSquares(): Map<string, Square> {
+    return this.squares;
+  }
+
+  public getSquareKey(position: Position): string {
     return `${position.x},${position.y}`;
   }
 
-  private initializeBoard(): void {
-    // Initialize squares and pieces
+  public getBoardKey(pos: Position): string {
+    return `${pos.x},${pos.y}`;
   }
+
+  public getSquarePosition(mesh: AbstractMesh): Position {
+    const [_, x, y] = mesh.name.split('_').map(Number);
+    return { x, y };
+  }
+
+  public getPieceColor(piece: AbstractMesh): 'white' | 'black' {
+    const match = piece.name.match(/^(pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
+    if (match) {
+      console.log('match:', match);
+      const [,,,y] = match;
+      const row = parseInt(y);
+      return row <= 1 ? 'white' : 'black';
+    }
+    const pos = this.getSquarePosition(piece);
+    const pieceData = this.squares.get(this.getBoardKey(pos));
+    return pieceData?.getPiece()?.getColor() || 'white';
+  }
+
+  public isPiece(mesh: AbstractMesh): boolean {
+    return mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/) !== null;
+  }
+
+  public printPieceNames(): void {
+    console.log('=== PIECE NAMES AND POSITIONS ===');
+    const pieceMeshes = this.scene.meshes.filter(mesh => this.isPiece(mesh));
+    pieceMeshes.forEach(mesh => {
+      const pieceMatch = mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
+      if (pieceMatch) {
+        const [_, _type, initialX, initialY] = pieceMatch;
+        const initialPos = `${initialX},${initialY}`;
+        const currentPos = `${Math.round(mesh.position.x)},${Math.round(mesh.position.z)}`;
+        const color = this.getPieceColor(mesh);
+        
+        console.log(`${mesh.name}: initial(${initialPos}) current(${currentPos}) color(${color})`);
+      }
+    });
+    console.log('================================');
+  }
+
+  public printBoardState(): void {
+    console.log('=== CURRENT BOARD STATE ===');
+    
+    const boardRepresentation = Array(8).fill(null).map(() => Array(8).fill('...'));
+    this.squares.forEach((square, key) => {
+      const piece = square.getPiece();
+      if (piece) {
+        const [x, y] = key.split(',').map(Number);
+        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+          const pieceSymbol = piece.getColor() === 'white' ? 
+          piece.getType().charAt(0).toUpperCase() : piece.getType().charAt(0).toLowerCase();
+          boardRepresentation[y][x] = pieceSymbol;
+        }
+      }
+    });
+    console.log('  0 1 2 3 4 5 6 7');
+    boardRepresentation.forEach((row, index) => {
+      console.log(`${index} ${row.join(' ')}`);
+    });
+    console.log('Raw board data:');
+    this.squares.forEach((square, key) => {
+      const piece = square.getPiece();
+      if (piece) {
+        console.log(`${key}: ${piece.getType()} (${piece.getColor()})`);
+      }
+    });
+    
+    console.log('========================');
+  }
+
+  public isSquare(mesh: AbstractMesh): boolean {
+    return mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/) === null;
+  }
+
 }
 
-export const createChessBoard = (scene: BABYLON.Scene): void => {
+export const createChessBoard = (scene: BABYLON.Scene): Board => {
+  const board = new Board(scene);
+  
   const ground = BABYLON.MeshBuilder.CreateGround(
     'ground',
     { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
@@ -142,16 +264,17 @@ export const createChessBoard = (scene: BABYLON.Scene): void => {
     createLabelTile((rank + 1).toString(), -1, rank, false);
     createLabelTile((rank + 1).toString(), 8, rank, false);
   }
+
+  return board;
 };
 
 export const createExtendedGrid = (scene: BABYLON.Scene): void => {
-    // Create infinite ground plane first
     const ground = BABYLON.MeshBuilder.CreateGround(
-        "ground",
+        'ground',
         { width: 1000, height: 1000 },
         scene
     );
-    const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+    const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
     groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
     ground.material = groundMaterial;
     ground.position.y = -0.1;

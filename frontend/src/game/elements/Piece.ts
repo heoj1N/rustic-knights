@@ -1,9 +1,7 @@
 import * as BABYLON from '@babylonjs/core';
-import { AbstractMesh, Scene } from '@babylonjs/core';
-
-import { BOARD_OFFSET, COLORS, SQUARE_SIZE } from '../../utils/constants';
+import { AbstractMesh } from '@babylonjs/core';
+import { BOARD_OFFSET, COLORS, SQUARE_SIZE } from '../../util/constants';
 import { ChessPieceType, Position } from '../../types/chess';
-
 import { Board } from './Board';
 
 export let selectedPiece: BABYLON.Mesh | null = null;
@@ -17,19 +15,25 @@ interface PieceMeshOptions {
   depth?: number;
 }
 
-export abstract class Piece {
+export class Piece {
   
   protected mesh: AbstractMesh;
   protected position: Position;
   protected isWhite: boolean;
+  protected type: ChessPieceType;
+  protected color: 'white' | 'black';
 
-  constructor(mesh: AbstractMesh, position: Position, isWhite: boolean) {
+  constructor(mesh: AbstractMesh, position: Position, isWhite: boolean, type: ChessPieceType) {
     this.mesh = mesh;
     this.position = position;
     this.isWhite = isWhite;
+    this.type = type;
+    this.color = isWhite ? 'white' : 'black';
   }
 
-  public abstract getValidMoves(board: Board): Position[];
+  public getValidMoves(_board: Board): Position[] {
+    return [];
+  }
 
   protected canMoveTo(targetPos: Position, board: Board): boolean {
     const targetSquare = board.getSquare(targetPos);
@@ -50,32 +54,13 @@ export abstract class Piece {
   public setPosition(position: Position): void {
     this.position = position;
   }
-}
 
-export class Square {
-  private piece: Piece | null = null;
-  private mesh: AbstractMesh;
-  public position: Position;
-
-  constructor(mesh: AbstractMesh, position: Position) {
-    this.mesh = mesh;
-    this.position = position;
+  public getColor(): 'white' | 'black' {
+    return this.color;
   }
 
-  public setPiece(piece: Piece | null): void {
-    this.piece = piece;
-  }
-
-  public getPiece(): Piece | null {
-    return this.piece;
-  }
-
-  public getMesh(): AbstractMesh {
-    return this.mesh;
-  }
-
-  public isEmpty(): boolean {
-    return this.piece === null;
+  public getType(): ChessPieceType {
+    return this.type;
   }
 }
 
