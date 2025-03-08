@@ -3,6 +3,7 @@ import { AbstractMesh } from '@babylonjs/core';
 import { BOARD_OFFSET, COLORS, SQUARE_SIZE } from '../../util/constants';
 import { ChessPieceType, Position } from '../../types/chess';
 import { Board } from './Board';
+import { Move } from '../rules/Move';
 
 export let selectedPiece: BABYLON.Mesh | null = null;
 
@@ -29,26 +30,50 @@ export class Piece {
     this.isWhite = isWhite;
     this.type = type;
     this.color = isWhite ? 'white' : 'black';
-  }
-
-  public getValidMoves(_board: Board): Position[] {
-    return [];
-  }
-
-  protected canMoveTo(targetPos: Position, board: Board): boolean {
-    const targetSquare = board.getSquare(targetPos);
-    if (!targetSquare) return false;
-
-    const targetPiece = targetSquare.getPiece();
-    return !targetPiece || targetPiece.isWhite !== this.isWhite;
+    
+    mesh.metadata = {
+      type: 'piece',
+      piece: this
+    };
   }
 
   public getMesh(): AbstractMesh {
     return this.mesh;
   }
 
+  public getName(): string {
+    return this.mesh.name;
+  }
+
+  public isWhitePiece(): boolean {
+    return this.isWhite;
+  }
+
+  public getValidMoves(board: Board): Position[] {
+    const validMoves: Position[] = [];
+    for (const [_, square] of board.getSquares()) {
+      const toPosition = square.getPosition();
+      const move = new Move(this, square, board);
+      if (move.isValid()) {
+        validMoves.push(toPosition);
+      }
+    }
+    return validMoves;
+  }
+
+  protected canMoveTo(targetPos: Position, board: Board): boolean {
+    const targetSquare = board.getSquare(targetPos);
+    if (!targetSquare) return false;
+    
+    return targetSquare.canBeOccupiedBy(this);
+  }
+
   public getPosition(): Position {
     return this.position;
+  }
+
+  public getType(): ChessPieceType {
+    return this.type;
   }
 
   public setPosition(position: Position): void {
@@ -57,10 +82,6 @@ export class Piece {
 
   public getColor(): 'white' | 'black' {
     return this.color;
-  }
-
-  public getType(): ChessPieceType {
-    return this.type;
   }
 }
 
@@ -71,13 +92,12 @@ export const createPiece = (
   z: number,
   scene: BABYLON.Scene
 ): BABYLON.Mesh => {
+  
   let mesh: BABYLON.Mesh;
   const color = isWhite ? COLORS.WHITE : COLORS.BLACK;
   const material = new BABYLON.StandardMaterial(`${type}_material`, scene);
   material.diffuseColor = color;
   const options = getPieceMeshOptions(type);
-
-  // Create highlight material
   const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
   highlightMaterial.diffuseColor =
     (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);

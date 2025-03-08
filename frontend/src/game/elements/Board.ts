@@ -10,15 +10,20 @@ export class Board {
   private squares: Map<string, Square> = new Map();
   private scene: Scene;
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, squares: Map<string, Square>) {
     this.scene = scene;
-    this.initializeBoard(scene);
+    this.squares = squares;
+    
+    if (this.squares.size === 0) {
+      this.initializeBoard(scene);
+    } else {
+      console.log('Using pre-initialized squares map with size:', this.squares.size);
+      this.printBoardState();
+    }
   }
 
   public initializeBoard(scene: Scene): void {
-
     const pieces = scene.meshes.filter((mesh) => mesh && this.isPiece(mesh));
-    
     if (!pieces || pieces.length === 0) {
       console.warn('No chess pieces found in the scene');
       return;
@@ -27,14 +32,13 @@ export class Board {
     pieces.forEach((piece) => {
       const match = piece.name.match(/^(pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
       if (!match) return;
-
       const [_, type, x, y] = match;
       const position = { x: parseInt(x), y: parseInt(y) };
       const color = parseInt(y) <= 1 ? 'white' : 'black';
       const xNum = parseInt(x);
       const yNum = parseInt(y);
       const mesh = createPiece(type as ChessPieceType, color === 'white', xNum, yNum, this.scene);
-      const square = this.squares.get(this.getBoardKey(position));
+      const square = this.squares.get(this.getSquareKey(position));
       if (square) {
         square.setPiece(new Piece(mesh, position, color === 'white', type as ChessPieceType));
       }
@@ -42,38 +46,40 @@ export class Board {
 
     this.printBoardState();
     this.printPieceNames();
-
-    for (let x = 0; x < BOARD_SIZE; x++) {
-      for (let y = 0; y < BOARD_SIZE; y++) {
-        const mesh = this.scene.getMeshByName(`square_${x}_${y}`);
-        if (mesh) {
-          const position = { x, y };
-          const square = new Square(mesh, position);
-          this.squares.set(this.getSquareKey(position), square);
-        }
-      }
-    }
   }
 
   public getSquare(position: Position): Square | undefined {
-    return this.squares.get(this.getSquareKey(position));
-  }
-
-  public getSquares(): Map<string, Square> {
-    return this.squares;
+    const key = this.getSquareKey(position);
+    const square = this.squares.get(key);
+    return square;
   }
 
   public getSquareKey(position: Position): string {
     return `${position.x},${position.y}`;
   }
 
-  public getBoardKey(pos: Position): string {
-    return `${pos.x},${pos.y}`;
+  public getSquares(): Map<string, Square> {
+    return this.squares;
   }
 
   public getSquarePosition(mesh: AbstractMesh): Position {
-    const [_, x, y] = mesh.name.split('_').map(Number);
-    return { x, y };
+    let match;
+    if (this.isPiece(mesh)) {
+      match = mesh.name.match(/^(?:pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
+      if (match) {
+        const [, x, y] = match;
+        console.log(`Found position from piece name: x=${x}, y=${y}`);
+        return { x: Number(x), y: Number(y) };
+      }
+    } else if (mesh.name.startsWith('square_')) {
+      match = mesh.name.match(/^square_(\d+)_(\d+)/);
+      if (match) {
+        const [, x, y] = match;
+        return { x: Number(x), y: Number(y) };
+      }
+    }
+    const parts = mesh.name.split('_').map(Number);
+    return { x: parts[1] || 0, y: parts[2] || 0 };
   }
 
   public getPieceColor(piece: AbstractMesh): 'white' | 'black' {
@@ -85,7 +91,7 @@ export class Board {
       return row <= 1 ? 'white' : 'black';
     }
     const pos = this.getSquarePosition(piece);
-    const pieceData = this.squares.get(this.getBoardKey(pos));
+    const pieceData = this.squares.get(this.getSquareKey(pos));
     return pieceData?.getPiece()?.getColor() || 'white';
   }
 
@@ -112,7 +118,6 @@ export class Board {
 
   public printBoardState(): void {
     console.log('=== CURRENT BOARD STATE ===');
-    
     const boardRepresentation = Array(8).fill(null).map(() => Array(8).fill('...'));
     this.squares.forEach((square, key) => {
       const piece = square.getPiece();
@@ -125,7 +130,7 @@ export class Board {
         }
       }
     });
-    console.log('  0 1 2 3 4 5 6 7');
+    console.log('0 1 2 3 4 5 6 7');
     boardRepresentation.forEach((row, index) => {
       console.log(`${index} ${row.join(' ')}`);
     });
@@ -144,10 +149,39 @@ export class Board {
     return mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/) === null;
   }
 
+  public movePiece(fromPos: Position, toPos: Position): boolean {
+    const fromSquare = this.getSquare(fromPos);
+    const toSquare = this.getSquare(toPos);
+    if (!fromSquare || !toSquare) return false;
+    const piece = fromSquare.getPiece();
+    if (!piece) return false;
+    const capturedPiece = toSquare.getPiece();
+    if (capturedPiece) this.removePiece(capturedPiece);
+    fromSquare.setPiece(null);
+    toSquare.setPiece(piece);
+    return true;
+  }
+
+  public removePiece(piece: Piece): void {
+    // Remove the piece from the board
+    // This might involve hiding the mesh or removing it from the scene
+    const mesh = piece.getMesh();
+    if (mesh) {
+      mesh.setEnabled(false); // Hide the piece instead of destroying it
+      // Or mesh.dispose(); // If you want to completely remove it
+    }
+  }
 }
 
 export const createChessBoard = (scene: BABYLON.Scene): Board => {
-  const board = new Board(scene);
+  // TODO: while iterating to create the board, we should also create the squares
+  // and add them to the squares map
+  const squares = new Map<string, Square>();
+
+  // Add debug log to show initial squares state
+  console.log('Creating chess board with initial squares map:', squares);
+
+  const board = new Board(scene, squares);
   
   const ground = BABYLON.MeshBuilder.CreateGround(
     'ground',
@@ -161,12 +195,18 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
 
   for (let x = 0; x < BOARD_SIZE; x++) {
     for (let z = 0; z < BOARD_SIZE; z++) {
+      const name = `square_${x}_${z}`;
       const square = BABYLON.MeshBuilder.CreateBox(
-        `square_${x}_${z}`,
+        name,
         { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
         scene
       );
-
+      // Create a Square object and add it to the squares map
+      const squareObj = new Square(square, name);
+      const key = `${x},${z}`;
+      squares.set(key, squareObj);
+      
+      // Rest of the existing code for square appearance...
       square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
       square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
 
@@ -309,5 +349,3 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
         }
     }
 };
-
-

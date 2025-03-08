@@ -1,15 +1,20 @@
 import { MoveResult } from '../../types/chess';
 import { Move } from './Move';
-import { Square } from '../elements/Square';
 import { Player } from '../p2p/Player';
+import { Board } from '../elements/Board';
+import { Piece } from '../elements/Piece';
+import { Square } from '../elements/Square';
 
 export class ChessGame {
+
   private moves: Move[] = [];
   private players: Player[] = [];
   private currentTurn: 'white' | 'black' = 'white';
   private turnCounter: number = 1;
+  private board: Board;
 
-  constructor() {
+  constructor(board: Board) {
+    this.board = board;
     // Initialize game state
   }
 
@@ -25,28 +30,29 @@ export class ChessGame {
     return [...this.players];
   }
 
-  public makeMove(fromSquare: Square, toSquare: Square): MoveResult {
-    const move = new Move(fromSquare, toSquare);
-    
-    if (!move.getPiece()) {
-      return { valid: false, message: 'No piece selected' };
-    }
-
-    if (move.isWhiteTurn() !== (this.currentTurn === 'white')) {
-      return { valid: false, message: 'Wrong turn' };
-    }
-
+  public makeMove(from: Piece, to: Piece | Square): MoveResult {
+    const move = new Move(from, to, this.board);
     if (!move.isValid()) {
+      console.log('Invalid move: Move validation failed');
       return { valid: false, message: 'Invalid move' };
     }
-
-    this.moves.push(move);
-    this.currentTurn = this.currentTurn === 'white' ? 'black' : 'white';
-    if (this.currentTurn === 'white') {
-      this.turnCounter++;
+    if ('getColor' in from && typeof from.getColor === 'function') {
+      if (this.isKingInCheck(from.getColor())) {
+        console.log('Invalid move: King is in check');
+        return { valid: false, message: 'Your king is in check' };
+      }
     }
-
-    return { valid: true };
+    const fromPos = from.getPosition();
+    const toPos = to.getPosition();
+    const moveSuccess = this.board.movePiece(fromPos, toPos);
+    if (moveSuccess) {
+      this.currentTurn = this.currentTurn === 'white' ? 'black' : 'white';
+      this.moves.push(move);
+      console.log('Move successful');
+      return { valid: true };
+    }
+    console.log('Move execution failed');
+    return { valid: false, message: 'Move execution failed' };
   }
 
   public getGameNotation(): string {
@@ -57,6 +63,11 @@ export class ChessGame {
         return move.toNotation(turnNumber, isWhiteMove);
       })
       .join(' ');
+  }
+
+  private isKingInCheck(color: 'white' | 'black'): boolean {
+    // TODO: Implement check detection logic
+    return false;
   }
 }
 
