@@ -10,16 +10,37 @@ export class ChessGame {
   private moves: Move[] = [];
   private players: Player[] = [];
   private currentTurn: 'white' | 'black' = 'white';
-  private turnCounter: number = 1;
   private board: Board;
 
   constructor(board: Board) {
     this.board = board;
-    // Initialize game state
+
   }
 
   public getCurrentTurn(): 'white' | 'black' {
     return this.currentTurn;
+  }
+
+  /**
+   * Save the current game state when pausing
+   */
+  public saveGameState(): void {
+    this.board.saveGameState(this.currentTurn, this.moves);
+  }
+
+  /**
+   * Restore the game state when resuming
+   * @returns Whether restoration was successful
+   */
+  public restoreGameState(): boolean {
+    const restoredTurn = this.board.restoreGameState();
+    if (restoredTurn !== null) {
+      this.currentTurn = restoredTurn;
+      // Note: Move history would need to be properly restored as well
+      // This is a simplification
+      return true;
+    }
+    return false;
   }
 
   public getMoves(): Move[] {

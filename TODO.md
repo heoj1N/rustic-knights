@@ -70,3 +70,10 @@ npx prettier --write frontend/src/game/elements/Board.ts
 
 # Lint a specific file
 npx eslint frontend/src/game/elements/Board.ts --fix
+
+Todos:
+-- GameScene l.100
+-- Docstring Doc generation framework for ts?
+-- handleSquareSelection
+-- Pause not working
+-- Mobile View?

@@ -2,7 +2,6 @@ import { Position } from '../../types/chess';
 import { Square } from '../elements/Square';
 import { Piece } from '../elements/Piece';
 import { Board } from '../elements/Board';
-import { AbstractMesh } from '@babylonjs/core';
 
 export class Move {
   
@@ -17,8 +16,6 @@ export class Move {
   }
   
   // Getters and setters
-
-
   public getFromPiece(): Piece {
     return this.from;
   }
@@ -35,11 +32,6 @@ export class Move {
     return this.to.getPosition();
   }
 
-
-
-
-
-  
   public isWhiteTurn(): boolean {
     if (!this.from) return false;
     if ('getColor' in this.from && typeof this.from.getColor === 'function') {

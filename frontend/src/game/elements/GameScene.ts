@@ -1,7 +1,7 @@
 import * as BABYLON from '@babylonjs/core';
-import { createChessBoard, createExtendedGrid, Board } from './Board';
-import { createInitialPieces } from './Piece';
+import { Board } from './Board';
 import { ChessGame } from '../rules/ChessGame';
+import { setCurrentTurn } from './Piece';
 
 export class GameScene {
 
@@ -16,7 +16,7 @@ export class GameScene {
     this.engine = engine;
     this.canvas = canvas;
     this.scene = this.createScene();
-    this.board = createChessBoard(this.scene);
+    this.board = new Board(this.scene);
     this.chessGame = new ChessGame(this.board);
     this.setupEventHandlers();
   }
@@ -31,9 +31,6 @@ export class GameScene {
     const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 10, 0), scene);
     light.intensity = 0.7;
     scene.clearColor = new BABYLON.Color4(0.2, 0.2, 0.3, 1);
-    this.board = createChessBoard(scene);
-    createExtendedGrid(scene);
-    createInitialPieces(scene);
     this.setupFPSDisplay();
     return scene;
   }
@@ -60,38 +57,26 @@ export class GameScene {
   }
 
   private handleSquareSelection(mesh: BABYLON.AbstractMesh): void {
-    if (!this.board.isSquare(mesh) || !this.selectedPiece) return;
 
-    console.log('Selected piece mesh:', this.selectedPiece.name);
+    if (!this.board.isSquare(mesh) || !this.selectedPiece) return;
     const fromSquarePos = this.board.getSquarePosition(this.selectedPiece);
     const toSquarePos = this.board.getSquarePosition(mesh);
-    console.log('From position:', fromSquarePos);
-    console.log('To position:', toSquarePos);
 
     if (!fromSquarePos || !toSquarePos) {
       console.error('Could not determine square positions');
       return;
     }
-
     const fromSquare = this.board.getSquare(fromSquarePos);
     const toSquare = this.board.getSquare(toSquarePos);
-    console.log('From square:', fromSquare);
-    console.log('To square:', toSquare);
 
-    // Try to get the piece from the board's internal state
-    // Also try to fetch it by direct lookup if the normal way fails
     let fromPiece = fromSquare?.getPiece();
-    
-    // If we can't find the piece at the expected square, search for it
     if (!fromPiece && this.selectedPiece) {
-      // Try getting the piece from the board based on the mesh name
+
       const pieces = Array.from(this.board.getSquares().values())
         .map(square => square.getPiece())
         .filter(piece => piece !== null);
       
-      console.log('Searching through all pieces on board:', pieces.length);
-      
-      // Find any piece that matches our selected mesh
+      console.log('Searching through all pieces on board:', pieces.length); // TODO: THIS CURRENTLY RETURNS 0
       fromPiece = pieces.find(piece => 
         piece?.getMesh().name === this.selectedPiece?.name
       ) || null;
@@ -127,6 +112,7 @@ export class GameScene {
         }
         console.log('Game notation:', this.chessGame.getGameNotation());
         this.board.printBoardState();
+        setCurrentTurn(this.chessGame.getCurrentTurn());
       } else {
         console.log('Invalid move:', result.message);
       }
@@ -136,12 +122,8 @@ export class GameScene {
 
   private setupCamera(scene: BABYLON.Scene): void {
     const camera = new BABYLON.ArcRotateCamera(
-      'Camera', 
-      Math.PI / 2, 
-      Math.PI / 3, 
-      12,
-      BABYLON.Vector3.Zero(), 
-      scene
+      'Camera', Math.PI / 2, Math.PI / 3, 
+      12, BABYLON.Vector3.Zero(), scene
     );
     camera.setPosition(new BABYLON.Vector3(0, 8, -12));
     camera.attachControl(this.canvas, true);

@@ -90,52 +90,157 @@ export const createPiece = (
   isWhite: boolean,
   x: number,
   z: number,
-  scene: BABYLON.Scene
+  scene: BABYLON.Scene,
+  material?: BABYLON.StandardMaterial
 ): BABYLON.Mesh => {
   
   let mesh: BABYLON.Mesh;
   const color = isWhite ? COLORS.WHITE : COLORS.BLACK;
-  const material = new BABYLON.StandardMaterial(`${type}_material`, scene);
-  material.diffuseColor = color;
   const options = getPieceMeshOptions(type);
-  const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
-  highlightMaterial.diffuseColor =
-    (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);
-  highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
-
+  
+  // Variables for crown features - declared outside case blocks
+  let crossMesh: BABYLON.Mesh;
+  let crossbarMesh: BABYLON.Mesh;
+  let crown: BABYLON.Mesh;
+  
+  // Create material for the piece
+  const pieceMaterial = material || new BABYLON.StandardMaterial(`${type}_material`, scene);
+  if (!material) {
+    pieceMaterial.diffuseColor = color;
+  }
+  
   switch (type) {
     case 'pawn':
-    case 'knight':
-    case 'queen':
-    case 'king':
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`${type}_${x}_${z}`, options, scene);
-      setupPieceInteractions(mesh, material, highlightMaterial, scene);
-      break;
     case 'rook':
-      mesh = BABYLON.MeshBuilder.CreateBox(`${type}_${x}_${z}`, options, scene);
-      setupPieceInteractions(mesh, material, highlightMaterial, scene);
-      break;
-    case 'bishop':
       mesh = BABYLON.MeshBuilder.CreateCylinder(
         `${type}_${x}_${z}`,
-        {
-          height: options.height,
-          diameterTop: 0,
-          diameterBottom: options.diameter || 0.3,
+        options,
+        scene
+      );
+      mesh.material = pieceMaterial;
+      break;
+    case 'king':
+    case 'queen':
+      // Create the base cylinder for king/queen
+      mesh = BABYLON.MeshBuilder.CreateCylinder(
+        `${type}_${x}_${z}`,
+        options,
+        scene
+      );
+      
+      // Apply material to main piece
+      mesh.material = pieceMaterial;
+      
+      // Add crown features based on piece type
+      if (type === 'king') {
+        // King has a cross-shaped crown
+        crossMesh = BABYLON.MeshBuilder.CreateBox(
+          `${type}_cross_${x}_${z}`,
+          { width: 0.15, height: 0.3, depth: 0.15 },
+          scene
+        );
+        
+        // Position the cross on top of the cylinder
+        crossMesh.position.y = options.height / 2 + 0.15;
+        crossMesh.parent = mesh;
+        crossMesh.material = pieceMaterial;
+        
+        // Add a horizontal bar for the cross
+        crossbarMesh = BABYLON.MeshBuilder.CreateBox(
+          `${type}_crossbar_${x}_${z}`,
+          { width: 0.3, height: 0.1, depth: 0.15 },
+          scene
+        );
+        crossbarMesh.position.y = options.height / 2 + 0.1;
+        crossbarMesh.parent = mesh;
+        crossbarMesh.material = pieceMaterial;
+        
+      } else {
+        // Queen has a crown with points
+        for (let i = 0; i < 5; i++) {
+          crown = BABYLON.MeshBuilder.CreateCylinder(
+            `${type}_crown_point_${i}_${x}_${z}`,
+            { height: 0.25, diameterTop: 0.05, diameterBottom: 0.12 },
+            scene
+          );
+          
+          // Position the points in a circle on top of the queen
+          const angle = (i / 5) * Math.PI * 2;
+          const radius = 0.15;
+          crown.position.x = Math.cos(angle) * radius;
+          crown.position.z = Math.sin(angle) * radius;
+          crown.position.y = options.height / 2 + 0.1;
+          crown.parent = mesh;
+          
+          // Apply the same material as the main piece
+          crown.material = pieceMaterial;
+        }
+      }
+      break;
+    case 'knight':
+      mesh = BABYLON.MeshBuilder.CreateBox(
+        `${type}_${x}_${z}`,
+        { height: options.height, width: 0.5, depth: 0.5 },
+        scene
+      );
+      mesh.material = pieceMaterial;
+      break;
+    case 'bishop':
+      // Use correct cylinder with zero top diameter instead of cone
+      mesh = BABYLON.MeshBuilder.CreateCylinder(
+        `${type}_${x}_${z}`,
+        { 
+          height: options.height, 
+          diameterTop: 0.1, 
+          diameterBottom: options.diameterBottom as number 
         },
         scene
       );
-      setupPieceInteractions(mesh, material, highlightMaterial, scene);
+      mesh.material = pieceMaterial;
       break;
     default:
-      throw new Error(`Unknown piece type: ${type}`);
+      mesh = BABYLON.MeshBuilder.CreateCylinder(
+        `${type}_${x}_${z}`,
+        { height: 1, diameter: 0.5 },
+        scene
+      );
+      mesh.material = pieceMaterial;
   }
-
-  mesh.material = material;
+  
+  mesh.position.y = options.height / 2;
   mesh.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
   mesh.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-  mesh.position.y = mesh.scaling.y / 2;
-
+  
+  // Create highlight materials for both friendly and opponent highlighting
+  const friendlyHighlightMaterial = new BABYLON.StandardMaterial(
+    `${type}_friendly_highlight_${x}_${z}`,
+    scene
+  );
+  friendlyHighlightMaterial.diffuseColor = new BABYLON.Color3(0, 0.502, 0.502); // Teal (0, 128, 128)
+  friendlyHighlightMaterial.specularColor = new BABYLON.Color3(0.7, 1, 1);
+  
+  const opponentHighlightMaterial = new BABYLON.StandardMaterial(
+    `${type}_opponent_highlight_${x}_${z}`,
+    scene
+  );
+  opponentHighlightMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2); // Red tint
+  opponentHighlightMaterial.specularColor = new BABYLON.Color3(1, 0.6, 0.6);
+  
+  // Store the piece's metadata including both highlight materials
+  mesh.metadata = {
+    type: 'piece',
+    pieceType: type,
+    isWhite: isWhite,
+    initialPosition: { x, z },
+    // Store materials for different highlighting cases
+    defaultMaterial: material || new BABYLON.StandardMaterial(`${type}_material`, scene),
+    friendlyHighlightMaterial: friendlyHighlightMaterial,
+    opponentHighlightMaterial: opponentHighlightMaterial
+  };
+  
+  // Setup piece interactions with the new highlight system
+  setupPieceInteractions(mesh, material || new BABYLON.StandardMaterial(`${type}_material`, scene), friendlyHighlightMaterial, opponentHighlightMaterial, scene);
+  
   return mesh;
 };
 
@@ -150,39 +255,17 @@ export const getPieceMeshOptions = (type: ChessPieceType): PieceMeshOptions => {
     case 'bishop':
       return { height: 0.9, diameter: 0.3 };
     case 'queen':
-      return { height: 1, diameterTop: 0.1, diameterBottom: 0.4 };
+      return { height: 1, diameterTop: 0.35, diameterBottom: 0.5 };
     case 'king':
-      return { height: 1.2, diameterTop: 0.2, diameterBottom: 0.4 };
+      return { height: 1.2, diameterTop: 0.4, diameterBottom: 0.6 };
   }
-};
-
-export const createInitialPieces = (scene: BABYLON.Scene): void => {
-  // Create pawns
-  for (let i = 0; i < 8; i++) {
-    createPiece('pawn', true, i, 1, scene); // White pawns
-    createPiece('pawn', false, i, 6, scene); // Black pawns
-  }
-  // Create other pieces
-  const pieceOrder: ChessPieceType[] = [
-    'rook',
-    'knight',
-    'bishop',
-    'queen',
-    'king',
-    'bishop',
-    'knight',
-    'rook',
-  ];
-  pieceOrder.forEach((piece, i) => {
-    createPiece(piece, true, i, 0, scene); // White pieces
-    createPiece(piece, false, i, 7, scene); // Black pieces
-  });
 };
 
 const setupPieceInteractions = (
   mesh: BABYLON.Mesh,
-  material: BABYLON.StandardMaterial,
-  highlightMaterial: BABYLON.StandardMaterial,
+  defaultMaterial: BABYLON.StandardMaterial,
+  friendlyHighlightMaterial: BABYLON.StandardMaterial,
+  opponentHighlightMaterial: BABYLON.StandardMaterial,
   scene: BABYLON.Scene
 ) => {
   mesh.actionManager = new BABYLON.ActionManager(scene);
@@ -191,6 +274,11 @@ const setupPieceInteractions = (
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
       if (mesh !== selectedPiece) {
         mesh.scaling = new BABYLON.Vector3(1, 1.1, 1);
+        
+        // Determine if this is an opponent piece based on current turn
+        const isOpponentPiece = checkIsOpponent(mesh);
+        mesh.material = isOpponentPiece ? 
+          opponentHighlightMaterial : friendlyHighlightMaterial;
       }
     })
   );
@@ -199,6 +287,7 @@ const setupPieceInteractions = (
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
       if (mesh !== selectedPiece) {
         mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+        mesh.material = defaultMaterial;
       }
     })
   );
@@ -208,7 +297,7 @@ const setupPieceInteractions = (
       // Deselect current piece if exists
       if (selectedPiece) {
         selectedPiece.scaling = new BABYLON.Vector3(1, 1, 1);
-        selectedPiece.material = material;
+        selectedPiece.material = defaultMaterial;
       }
 
       // If clicking the same piece, deselect it
@@ -220,7 +309,23 @@ const setupPieceInteractions = (
       // Select new piece
       selectedPiece = mesh;
       mesh.scaling = new BABYLON.Vector3(1, 1.2, 1);
-      mesh.material = highlightMaterial;
+      mesh.material = friendlyHighlightMaterial;
     })
   );
+};
+
+// Function to determine if a piece is an opponent piece
+// This can be updated by the game controller when the turn changes
+let currentTurn: 'white' | 'black' = 'white'; // Default to white's turn
+
+export const setCurrentTurn = (turn: 'white' | 'black'): void => {
+  currentTurn = turn;
+};
+
+const checkIsOpponent = (mesh: BABYLON.AbstractMesh): boolean => {
+  if (mesh.metadata && mesh.metadata.isWhite !== undefined) {
+    return (currentTurn === 'white' && !mesh.metadata.isWhite) || 
+           (currentTurn === 'black' && mesh.metadata.isWhite);
+  }
+  return false;
 };

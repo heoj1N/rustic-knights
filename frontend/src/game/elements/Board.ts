@@ -9,43 +9,140 @@ export class Board {
   
   private squares: Map<string, Square> = new Map();
   private scene: Scene;
+  private piecesByType: Map<ChessPieceType, Map<string, Piece>> = new Map();
+  private materials: Map<string, BABYLON.StandardMaterial> = new Map();
 
-  constructor(scene: Scene, squares: Map<string, Square>) {
+  // Game state preservation for pause/resume
+  private savedState: {
+    pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[];
+    currentTurn: 'white' | 'black';
+    moveHistory: any[];
+  } | null = null;
+
+  constructor(scene: Scene, squares?: Map<string, Square>) {
     this.scene = scene;
-    this.squares = squares;
+    this.squares = squares || new Map();
     
     if (this.squares.size === 0) {
-      this.initializeBoard(scene);
+      this.createVisualBoard();
+      this.createInitialPieces();
     } else {
       console.log('Using pre-initialized squares map with size:', this.squares.size);
-      this.printBoardState();
     }
   }
 
-  public initializeBoard(scene: Scene): void {
-    const pieces = scene.meshes.filter((mesh) => mesh && this.isPiece(mesh));
-    if (!pieces || pieces.length === 0) {
-      console.warn('No chess pieces found in the scene');
-      return;
-    }
+  private createVisualBoard(): void {
+    console.log('Creating chess board with initial squares map:', this.squares);
+    
+    // Create ground
+    const ground = BABYLON.MeshBuilder.CreateGround(
+      'ground',
+      { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
+      this.scene
+    );
+    const groundMaterial = new BABYLON.StandardMaterial('groundMat', this.scene);
+    groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    ground.material = groundMaterial;
+    ground.position.y = -0.1;
 
-    pieces.forEach((piece) => {
-      const match = piece.name.match(/^(pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
-      if (!match) return;
-      const [_, type, x, y] = match;
-      const position = { x: parseInt(x), y: parseInt(y) };
-      const color = parseInt(y) <= 1 ? 'white' : 'black';
-      const xNum = parseInt(x);
-      const yNum = parseInt(y);
-      const mesh = createPiece(type as ChessPieceType, color === 'white', xNum, yNum, this.scene);
-      const square = this.squares.get(this.getSquareKey(position));
-      if (square) {
-        square.setPiece(new Piece(mesh, position, color === 'white', type as ChessPieceType));
+    // Create board squares
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      for (let z = 0; z < BOARD_SIZE; z++) {
+        const name = `square_${x}_${z}`;
+        const square = BABYLON.MeshBuilder.CreateBox(
+          name, 
+          { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE }, 
+          this.scene
+        );
+        const squareObj = new Square(square, name);
+        const key = `${x},${z}`;
+        this.squares.set(key, squareObj);
+        square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+        square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+        
+        const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, this.scene);
+        defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
+        
+        const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, this.scene);
+        highlightMaterial.diffuseColor =
+          (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);
+        highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
+        
+        square.material = defaultMaterial;
+        square.actionManager = new BABYLON.ActionManager(this.scene);
+        square.actionManager.registerAction(
+          new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
+            square.scaling = new BABYLON.Vector3(1, 1.1, 1);
+            square.material =
+              square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+          })
+        );
+        square.actionManager.registerAction(
+          new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
+            square.scaling = new BABYLON.Vector3(1, 1, 1);
+            square.material =
+              square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+          })
+        );
       }
+    }
+    // Rest
+    this.createBoardLabels();
+    this.createExtendedGrid();
+  }
+  
+  private createBoardLabels(): void {
+    const createLabelTile = (text: string, x: number, z: number, isFile: boolean) => {
+      const tile = BABYLON.MeshBuilder.CreateBox(
+        `label_${x}_${z}`,
+        { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
+        this.scene
+      );
+      tile.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+      tile.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+      tile.position.y = 0;
+      
+      const material = new BABYLON.StandardMaterial(`label_material_${x}_${z}`, this.scene);
+      material.diffuseColor = new BABYLON.Color3(183/255, 65/255, 14/255); // Brown color
+      tile.material = material;
+      
+      const texture = new BABYLON.DynamicTexture(
+        `label_texture_${x}_${z}`,
+        { width: 256, height: 256 },
+        this.scene
+      );
+
+      const textContext = texture.getContext() as CanvasRenderingContext2D;
+      textContext.font = 'bold 128px Arial';
+      textContext.fillStyle = 'white';
+      textContext.textAlign = 'center';
+      textContext.textBaseline = 'middle';
+      textContext.fillText(text, 128, 128);
+      texture.update();
+
+      material.diffuseTexture = texture;
+      
+      if (!isFile) {
+        tile.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
+      } else {
+        if (z < 0) {
+          tile.rotation.y = Math.PI / 2;
+        } else {
+          tile.rotation.y = -Math.PI / 2;
+        }
+      }
+    };
+
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    files.forEach((file, index) => {
+      createLabelTile(file, index, -1, true);
+      createLabelTile(file, index, 8, true);
     });
 
-    this.printBoardState();
-    this.printPieceNames();
+    for (let rank = 0; rank < 8; rank++) {
+      createLabelTile((rank + 1).toString(), -1, rank, false);
+      createLabelTile((rank + 1).toString(), 8, rank, false);
+    }
   }
 
   public getSquare(position: Position): Square | undefined {
@@ -134,19 +231,13 @@ export class Board {
     boardRepresentation.forEach((row, index) => {
       console.log(`${index} ${row.join(' ')}`);
     });
-    console.log('Raw board data:');
-    this.squares.forEach((square, key) => {
-      const piece = square.getPiece();
-      if (piece) {
-        console.log(`${key}: ${piece.getType()} (${piece.getColor()})`);
-      }
-    });
-    
     console.log('========================');
   }
 
   public isSquare(mesh: AbstractMesh): boolean {
-    return mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/) === null;
+    return mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/) === null && 
+           mesh.name.startsWith('square_') &&
+           !mesh.name.startsWith('extended_square_');
   }
 
   public movePiece(fromPos: Position, toPos: Position): boolean {
@@ -171,18 +262,215 @@ export class Board {
       // Or mesh.dispose(); // If you want to completely remove it
     }
   }
+
+  public createInitialPieces(): void {
+    console.log('Creating initial pieces');
+    
+    // Create shared materials for each piece type and color
+    this.createPieceMaterials();
+    
+    // Define the initial board layout
+    const initialLayout: [ChessPieceType, boolean, number, number][] = [
+      // White pieces (back row and pawns)
+      ['rook', true, 0, 0],
+      ['knight', true, 1, 0],
+      ['bishop', true, 2, 0],
+      ['queen', true, 3, 0],
+      ['king', true, 4, 0],
+      ['bishop', true, 5, 0],
+      ['knight', true, 6, 0],
+      ['rook', true, 7, 0],
+      
+      // White pawns
+      ...Array(8).fill(0).map((_, i) => ['pawn', true, i, 1] as [ChessPieceType, boolean, number, number]),
+      
+      // Black pieces (back row and pawns)
+      ['rook', false, 0, 7],
+      ['knight', false, 1, 7],
+      ['bishop', false, 2, 7],
+      ['queen', false, 3, 7],
+      ['king', false, 4, 7],
+      ['bishop', false, 5, 7],
+      ['knight', false, 6, 7],
+      ['rook', false, 7, 7],
+      
+      // Black pawns
+      ...Array(8).fill(0).map((_, i) => ['pawn', false, i, 6] as [ChessPieceType, boolean, number, number])
+    ];
+    
+    // Create all pieces and place them on their squares
+    for (const [type, isWhite, x, y] of initialLayout) {
+      const colorStr = isWhite ? 'white' : 'black';
+      const materialKey = `${type}_${colorStr}`;
+      const material = this.materials.get(materialKey);
+      const mesh = createPiece(type, isWhite, x, y, this.scene, material);
+      const position = { x, y };
+      const square = this.getSquare(position);
+      
+      if (square) {
+        const piece = new Piece(mesh, position, isWhite, type); // Create the piece object and place it on the square
+        square.setPiece(piece);
+        if (!this.piecesByType.has(type)) { // Store the piece for easy lookup
+          this.piecesByType.set(type, new Map());
+        }
+        const pieceMap = this.piecesByType.get(type)!;
+        pieceMap.set(`${x},${y}`, piece);
+      } else {
+        console.warn(`Square not found for position ${x},${y}`);
+      }
+    }
+  }
+  
+  private createPieceMaterials(): void {
+    const pieceTypes: ChessPieceType[] = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
+    
+    for (const type of pieceTypes) {
+      // White pieces
+      const whiteMaterial = new BABYLON.StandardMaterial(`${type}_white_material`, this.scene);
+      whiteMaterial.diffuseColor = COLORS.WHITE;
+      this.materials.set(`${type}_white`, whiteMaterial);
+      
+      // Black pieces
+      const blackMaterial = new BABYLON.StandardMaterial(`${type}_black_material`, this.scene);
+      blackMaterial.diffuseColor = COLORS.BLACK;
+      this.materials.set(`${type}_black`, blackMaterial);
+    }
+  }
+
+  public createExtendedGrid(): void {
+    const ground = BABYLON.MeshBuilder.CreateGround(
+      'extended_ground',
+      { width: 1000, height: 1000 },
+      this.scene
+    );
+    const groundMaterial = new BABYLON.StandardMaterial('extendedGroundMat', this.scene);
+    groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    ground.material = groundMaterial;
+    ground.position.y = -0.1;
+
+    // Calculate the extent based on the chess board size
+    const boardStart = -1; // First label tile position
+    const boardEnd = 8;    // Last label tile position
+    const extendedSize = 20; // How far we want to extend from the board edges
+
+    // Create extended grid
+    for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
+      for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
+        const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
+        const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
+        
+        if (isInBoardArea && !isCornerTile) {
+          continue;
+        }
+
+        const square = BABYLON.MeshBuilder.CreateBox(
+          `extended_square_${x}_${z}`,
+          { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
+          this.scene
+        );
+
+        square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+        square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+
+        const material = new BABYLON.StandardMaterial(`extended_square_material_${x}_${z}`, this.scene);
+        material.diffuseColor = (x + z) % 2 === 0 ? COLORS.EXTENDED_LIGHT : COLORS.EXTENDED_DARK;
+        square.material = material;
+      }
+    }
+  }
+
+  /**
+   * Save the current board state when pausing the game
+   */
+  public saveGameState(currentTurn: 'white' | 'black', moveHistory: any[] = []): void {
+    const pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[] = [];
+    
+    // Collect all pieces and their current positions
+    this.squares.forEach((square, key) => {
+      const piece = square.getPiece();
+      if (piece) {
+        const mesh = piece.getMesh();
+        pieces.push({
+          position: piece.getPosition(),
+          type: piece.getType(),
+          isWhite: piece.isWhitePiece(),
+          meshPosition: new BABYLON.Vector3(mesh.position.x, mesh.position.y, mesh.position.z)
+        });
+      }
+    });
+    
+    // Save the current state
+    this.savedState = {
+      pieces,
+      currentTurn,
+      moveHistory: [...moveHistory]
+    };
+    
+    console.log('Game state saved:', this.savedState);
+  }
+
+  /**
+   * Restore the board state when resuming the game
+   * @returns The current turn after restoration
+   */
+  public restoreGameState(): 'white' | 'black' | null {
+    if (!this.savedState) {
+      console.warn('No saved game state to restore');
+      return null;
+    }
+    
+    console.log('Restoring game state:', this.savedState);
+    
+    // Clear all pieces from the board first
+    this.squares.forEach(square => {
+      if (square.getPiece()) {
+        square.setPiece(null);
+      }
+    });
+    
+    // Restore pieces to their saved positions
+    for (const pieceData of this.savedState.pieces) {
+      const { position, type, isWhite, meshPosition } = pieceData;
+      
+      // Find the square for this position
+      const square = this.getSquare(position);
+      if (square) {
+        // Find the mesh with the corresponding name
+        const meshName = `${type}_${position.x}_${position.y}`;
+        let mesh = this.scene.getMeshByName(meshName) as BABYLON.Mesh;
+        
+        // If the mesh doesn't exist (was deleted), recreate it
+        if (!mesh) {
+          mesh = createPiece(type, isWhite, position.x, position.y, this.scene);
+        }
+        
+        // Restore mesh position
+        mesh.position.x = meshPosition.x;
+        mesh.position.y = meshPosition.y;
+        mesh.position.z = meshPosition.z;
+        
+        // Create piece and assign to square
+        const piece = new Piece(mesh, position, isWhite, type);
+        square.setPiece(piece);
+      }
+    }
+    
+    return this.savedState.currentTurn;
+  }
+
+  /**
+   * Check if there's a saved game state
+   */
+  public hasSavedState(): boolean {
+    return this.savedState !== null;
+  }
 }
 
 export const createChessBoard = (scene: BABYLON.Scene): Board => {
-  // TODO: while iterating to create the board, we should also create the squares
-  // and add them to the squares map
   const squares = new Map<string, Square>();
-
-  // Add debug log to show initial squares state
+  console.log(squares.size);
   console.log('Creating chess board with initial squares map:', squares);
-
   const board = new Board(scene, squares);
-  
   const ground = BABYLON.MeshBuilder.CreateGround(
     'ground',
     { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
@@ -194,35 +482,24 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   ground.position.y = -0.1;
 
   for (let x = 0; x < BOARD_SIZE; x++) {
+
     for (let z = 0; z < BOARD_SIZE; z++) {
+
       const name = `square_${x}_${z}`;
-      const square = BABYLON.MeshBuilder.CreateBox(
-        name,
-        { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
-        scene
-      );
-      // Create a Square object and add it to the squares map
+      const square = BABYLON.MeshBuilder.CreateBox(name, { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE }, scene);
       const squareObj = new Square(square, name);
       const key = `${x},${z}`;
       squares.set(key, squareObj);
-      
-      // Rest of the existing code for square appearance...
       square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
       square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-
-      // Create default material
       const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, scene);
       defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
-
-      // Create highlight material
       const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, scene);
       highlightMaterial.diffuseColor =
         (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);
       highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
       square.material = defaultMaterial;
       square.actionManager = new BABYLON.ActionManager(scene);
-
-      // Hover effects
       square.actionManager.registerAction(
         new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
           square.scaling = new BABYLON.Vector3(1, 1.1, 1);
@@ -241,32 +518,24 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   }
 
   const createLabelTile = (text: string, x: number, z: number, isFile: boolean) => {
-    // Create tile
     const tile = BABYLON.MeshBuilder.CreateBox(
       `label_${x}_${z}`,
       { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
       scene
     );
-
-    // Position tile
     tile.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
     tile.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
     tile.position.y = 0;
-
-    // Create material
     const material = new BABYLON.StandardMaterial(`label_material_${x}_${z}`, scene);
     // material.diffuseColor = new BABYLON.Color3(0.4, 0.4, 0.4); // Gray color
     material.diffuseColor = new BABYLON.Color3(183/255, 65/255, 14/255); // Gray color
     tile.material = material;
-
-    // Create dynamic texture for text
-    const texture = new BABYLON.DynamicTexture(
+    const texture = new BABYLON.DynamicTexture( // Create dynamic texture for text
       `label_texture_${x}_${z}`,
       { width: 256, height: 256 },
       scene
     );
 
-    // Cast the context to CanvasRenderingContext2D
     const textContext = texture.getContext() as CanvasRenderingContext2D;
     textContext.font = 'bold 128px Arial';
     textContext.fillStyle = 'white';
@@ -275,20 +544,13 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
     textContext.fillText(text, 128, 128);
     texture.update();
 
-    // Apply texture
-    material.diffuseTexture = texture;
-
-    // Rotate text for rank labels (numbers)
+    material.diffuseTexture = texture; // Apply texture
     if (!isFile) {
-      // Rank labels on left side face outward, right side face inward
       tile.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
     } else {
-      // File labels (letters) rotation
       if (z < 0) {
-        // Bottom row - rotate to face the bottom player
         tile.rotation.y = Math.PI / 2;
       } else {
-        // Top row - rotate to face the top player
         tile.rotation.y = -Math.PI / 2;
       }
     }
@@ -326,6 +588,7 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
 
     // Create extended grid
     for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
+      
         for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
             const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
             const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
@@ -349,3 +612,11 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
         }
     }
 };
+
+export const createInitialPieces = (scene: BABYLON.Scene): void => {
+  // This function is now just a wrapper that delegates to the Board class
+  // We create a temporary board just to use its createInitialPieces method
+  const tempBoard = new Board(scene);
+  tempBoard.createInitialPieces();
+};
+
