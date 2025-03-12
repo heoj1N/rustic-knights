@@ -77,3 +77,4 @@ Todos:
 -- handleSquareSelection
 -- Pause not working
 -- Mobile View?
+-- pre-commit hook linter

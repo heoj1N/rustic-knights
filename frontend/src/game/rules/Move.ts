@@ -313,47 +313,33 @@ export class Move {
     
     if (dx === 0 && dy === 0) return false;
     
-    /**
-     * TODO: This method needs to be updated to accept a Board parameter
-     * to properly check for pieces blocking the path.
-     * 
-     * Example implementation would look like:
-     * 
-     * private isPathBlocked(from: Position, to: Position, board: Board): boolean {
-     *   const dx = Math.sign(to.x - from.x);
-     *   const dy = Math.sign(to.y - from.y);
-     *   
-     *   let x = from.x + dx;
-     *   let y = from.y + dy;
-     *   
-     *   // Check each square between from and to (exclusive)
-     *   while (x !== to.x || y !== to.y) {
-     *     const square = board.getSquare({ x, y });
-     *     if (square && square.getPiece()) {
-     *       return true; // Path is blocked
-     *     }
-     *     x += dx;
-     *     y += dy;
-     *   }
-     *   
-     *   return false; // Path is clear
-     * }
-     */
+    // Use the board instance we already have
+    let x = from.x + dx;
+    let y = from.y + dy;
+    
+    // Check each square between from and to (exclusive)
+    while (x !== to.x || y !== to.y) {
+      const position = { x, y };
+      const square = this.board.getSquare(position);
+      if (square && square.getPiece()) {
+        // Path is blocked by a piece
+        console.log(`Path blocked at ${x},${y}`, square.getPiece());
+        return true;
+      }
+      x += dx;
+      y += dy;
+    }
     
     // Special case for pawn's double move
     if (Math.abs(to.y - from.y) === 2 && from.x === to.x) {
       // This is a pawn double move - check the middle square
       const middleY = from.y + dy;
-      
-      console.log(`Path blocking check needed for middle square at ${from.x},${middleY}`);
-      
-      // Without proper board access, we can't accurately check
-      // In a complete implementation, this would return:
-      // return board.getSquare({ x: from.x, y: middleY })?.getPiece() !== null;
+      console.log(`Checking middle square at ${from.x},${middleY} for pawn double move`);
+      const middleSquare = this.board.getSquare({ x: from.x, y: middleY });
+      return middleSquare?.getPiece() !== null;
     }
     
-    // Current implementation cannot accurately check path blocking
-    return false;
+    return false; // Path is clear
   }
 
   private canCaptureAt(pos: Position): boolean {

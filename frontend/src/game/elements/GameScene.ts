@@ -3,8 +3,8 @@ import { Board } from './Board';
 import { ChessGame } from '../rules/ChessGame';
 import { setCurrentTurn } from './Piece';
 
-export class GameScene {
 
+export class GameScene {
   private scene: BABYLON.Scene;
   private engine: BABYLON.Engine;
   private canvas: HTMLCanvasElement;
@@ -37,9 +37,23 @@ export class GameScene {
 
   private setupEventHandlers(): void {
     this.scene.onPointerDown = (_evt, pickInfo) => {
-      if (!pickInfo?.hit || !pickInfo.pickedMesh) return;
+      if (!pickInfo?.hit) {
+        // Clicked on empty space
+        this.cancelSelection();
+        return;
+      }
+      
+      if (!pickInfo.pickedMesh) return;
+      
       const pickedMesh = pickInfo.pickedMesh;
       console.log('Picked mesh:', pickedMesh.name);
+      
+      // Handle clicks on the ground/background
+      if (pickedMesh.name === 'ground' || pickedMesh.name.startsWith('extended_ground')) {
+        this.cancelSelection();
+        return;
+      }
+      
       if (this.board.isPiece(pickedMesh)) {
         this.handlePieceSelection(pickedMesh);
       } else {
@@ -50,53 +64,82 @@ export class GameScene {
 
   private handlePieceSelection(mesh: BABYLON.AbstractMesh): void {
     if (!this.board.isPiece(mesh)) return;
+    
+    // If clicking the same piece that's already selected, deselect it
+    if (this.selectedPiece && this.selectedPiece.name === mesh.name) {
+      this.cancelSelection();
+      return;
+    }
+    
+    // Clear any existing highlights first
+    this.board.clearHighlights();
+    
     const pieceColor = this.board.getPieceColor(mesh);
     if (pieceColor === this.chessGame.getCurrentTurn()) {
       this.selectedPiece = mesh;
+      
+      // Get the position of the selected piece
+      const position = this.board.getSquarePosition(mesh);
+      const square = this.board.getSquare(position);
+      const piece = square?.getPiece();
+      
+      // Highlight valid moves for this piece
+      if (piece) {
+        this.board.highlightValidMoves(piece);
+      }
     }
   }
 
   private handleSquareSelection(mesh: BABYLON.AbstractMesh): void {
-
     if (!this.board.isSquare(mesh) || !this.selectedPiece) return;
+
     const fromSquarePos = this.board.getSquarePosition(this.selectedPiece);
     const toSquarePos = this.board.getSquarePosition(mesh);
 
     if (!fromSquarePos || !toSquarePos) {
       console.error('Could not determine square positions');
+      this.cancelSelection();
       return;
     }
+
+    // Check if the target square is highlighted as a valid move
+    const isValidMoveSquare = this.board.isValidMoveSquare(toSquarePos);
+    if (!isValidMoveSquare) {
+      console.log('Not a valid move target');
+      this.cancelSelection();
+      return;
+    }
+
     const fromSquare = this.board.getSquare(fromSquarePos);
     const toSquare = this.board.getSquare(toSquarePos);
-
     let fromPiece = fromSquare?.getPiece();
-    if (!fromPiece && this.selectedPiece) {
 
+    if (!fromPiece && this.selectedPiece) {
       const pieces = Array.from(this.board.getSquares().values())
         .map(square => square.getPiece())
         .filter(piece => piece !== null);
-      
-      console.log('Searching through all pieces on board:', pieces.length); // TODO: THIS CURRENTLY RETURNS 0
+      console.log('Searching through all pieces on board:', pieces.length);
       fromPiece = pieces.find(piece => 
         piece?.getMesh().name === this.selectedPiece?.name
       ) || null;
-      
       if (fromPiece) {
         console.log('Found piece by mesh name match:', fromPiece);
       }
     }
     
     const toPiece = toSquare?.getPiece();
-    console.log('fromPiece:', fromPiece);
-    console.log('toPiece:', toPiece);
     
     if (!fromPiece || !toSquare) {
       console.error('Missing required piece or target square');
+      this.cancelSelection();
       return;
     }
     
     const target = toPiece || toSquare;
     const result = this.chessGame.makeMove(fromPiece, target);
+
+    // Clear highlights regardless of move result
+    this.board.clearHighlights();
 
     if (result.valid) {
         this.selectedPiece.position.x = mesh.position.x;
@@ -118,6 +161,15 @@ export class GameScene {
       }
 
     this.selectedPiece = null;
+  }
+  
+  /**
+   * Cancel the current piece selection and clear highlights
+   */
+  private cancelSelection(): void {
+    this.board.clearHighlights();
+    this.selectedPiece = null;
+    console.log('Selection canceled');
   }
 
   private setupCamera(scene: BABYLON.Scene): void {

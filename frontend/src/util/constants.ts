@@ -12,4 +12,5 @@ export const COLORS = {
   DARK_SQUARE: new BABYLON.Color3(0, 0, 0),
   EXTENDED_LIGHT: new BABYLON.Color3(0.35, 0.35, 0.35),
   EXTENDED_DARK: new BABYLON.Color3(0.25, 0.25, 0.25),
+  VALID_MOVE_HIGHLIGHT: new BABYLON.Color3(0, 0.8, 0.2),
 };

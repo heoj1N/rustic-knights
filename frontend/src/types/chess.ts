@@ -1,4 +1,3 @@
-
 export type ChessPieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
 
 export type ChessColor = 'white' | 'black';
@@ -25,4 +24,13 @@ export interface MoveRecord {
   to: Position;
   isWhite: boolean;
   turn: number;
+}
+
+export enum SquareHighlightState {
+  DEFAULT,
+  HOVER,
+  SELECTED,
+  VALID_MOVE,
+  LAST_MOVE,
+  CHECK
 }

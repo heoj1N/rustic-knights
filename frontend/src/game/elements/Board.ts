@@ -1,18 +1,17 @@
 import * as BABYLON from '@babylonjs/core';
 import { Scene, AbstractMesh } from '@babylonjs/core';
+
 import { Square } from './Square';
-import { Position, ChessPieceType } from '../../types/chess';
-import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../../util/constants';
 import { Piece, createPiece } from './Piece';
+import { Position, ChessPieceType, SquareHighlightState } from '../../types/chess';
+import { BOARD_SIZE, SQUARE_SIZE, BOARD_OFFSET, COLORS } from '../../util/constants';
+
 
 export class Board {
-  
   private squares: Map<string, Square> = new Map();
   private scene: Scene;
   private piecesByType: Map<ChessPieceType, Map<string, Piece>> = new Map();
   private materials: Map<string, BABYLON.StandardMaterial> = new Map();
-
-  // Game state preservation for pause/resume
   private savedState: {
     pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[];
     currentTurn: 'white' | 'black';
@@ -32,8 +31,6 @@ export class Board {
   }
 
   private createVisualBoard(): void {
-    console.log('Creating chess board with initial squares map:', this.squares);
-    
     // Create ground
     const ground = BABYLON.MeshBuilder.CreateGround(
       'ground',
@@ -59,29 +56,30 @@ export class Board {
         this.squares.set(key, squareObj);
         square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
         square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-        
         const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, this.scene);
         defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
-        
         const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, this.scene);
         highlightMaterial.diffuseColor =
           (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);
         highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
-        
         square.material = defaultMaterial;
         square.actionManager = new BABYLON.ActionManager(this.scene);
         square.actionManager.registerAction(
           new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
-            square.scaling = new BABYLON.Vector3(1, 1.1, 1);
-            square.material =
-              square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+            const squareObj = this.squares.get(`${x},${z}`);
+            if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
+              square.scaling = new BABYLON.Vector3(1, 1.1, 1);
+              square.material = highlightMaterial;
+            }
           })
         );
         square.actionManager.registerAction(
           new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
-            square.scaling = new BABYLON.Vector3(1, 1, 1);
-            square.material =
-              square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+            const squareObj = this.squares.get(`${x},${z}`);
+            if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
+              square.scaling = new BABYLON.Vector3(1, 1, 1);
+              square.material = defaultMaterial;
+            }
           })
         );
       }
@@ -409,10 +407,6 @@ export class Board {
     console.log('Game state saved:', this.savedState);
   }
 
-  /**
-   * Restore the board state when resuming the game
-   * @returns The current turn after restoration
-   */
   public restoreGameState(): 'white' | 'black' | null {
     if (!this.savedState) {
       console.warn('No saved game state to restore');
@@ -421,25 +415,20 @@ export class Board {
     
     console.log('Restoring game state:', this.savedState);
     
-    // Clear all pieces from the board first
     this.squares.forEach(square => {
       if (square.getPiece()) {
         square.setPiece(null);
       }
     });
     
-    // Restore pieces to their saved positions
     for (const pieceData of this.savedState.pieces) {
       const { position, type, isWhite, meshPosition } = pieceData;
       
-      // Find the square for this position
       const square = this.getSquare(position);
       if (square) {
-        // Find the mesh with the corresponding name
         const meshName = `${type}_${position.x}_${position.y}`;
         let mesh = this.scene.getMeshByName(meshName) as BABYLON.Mesh;
         
-        // If the mesh doesn't exist (was deleted), recreate it
         if (!mesh) {
           mesh = createPiece(type, isWhite, position.x, position.y, this.scene);
         }
@@ -458,11 +447,45 @@ export class Board {
     return this.savedState.currentTurn;
   }
 
-  /**
-   * Check if there's a saved game state
-   */
   public hasSavedState(): boolean {
     return this.savedState !== null;
+  }
+
+  public highlightValidMoves(piece: Piece): void {
+    // Clear any existing highlights first
+    this.clearHighlights();
+    
+    // Get valid moves for this piece
+    const validMoves = piece.getValidMoves(this);
+    console.log(`Found ${validMoves.length} valid moves for ${piece.getType()} at ${piece.getPosition().x},${piece.getPosition().y}`);
+    
+    // Highlight the selected piece's square
+    const piecePos = piece.getPosition();
+    const pieceSquare = this.getSquare(piecePos);
+    if (pieceSquare) {
+      pieceSquare.setHighlightState(SquareHighlightState.SELECTED);
+    }
+    
+    // Highlight each valid move square
+    validMoves.forEach(position => {
+      const square = this.getSquare(position);
+      if (square) {
+        square.highlightAsValidMove();
+      }
+    });
+  }
+  
+  public clearHighlights(): void {
+    this.squares.forEach(square => {
+      square.resetHighlight();
+    });
+  }
+  
+  public isValidMoveSquare(position: Position): boolean {
+    const square = this.getSquare(position);
+    return square ? 
+      square.getHighlightState() === SquareHighlightState.VALID_MOVE : 
+      false;
   }
 }
 
@@ -472,9 +495,7 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   console.log('Creating chess board with initial squares map:', squares);
   const board = new Board(scene, squares);
   const ground = BABYLON.MeshBuilder.CreateGround(
-    'ground',
-    { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 },
-    scene
+    'ground', { width: BOARD_SIZE + 4, height: BOARD_SIZE + 4 }, scene
   );
   const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
   groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
@@ -482,9 +503,7 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   ground.position.y = -0.1;
 
   for (let x = 0; x < BOARD_SIZE; x++) {
-
     for (let z = 0; z < BOARD_SIZE; z++) {
-
       const name = `square_${x}_${z}`;
       const square = BABYLON.MeshBuilder.CreateBox(name, { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE }, scene);
       const squareObj = new Square(square, name);
@@ -502,16 +521,20 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
       square.actionManager = new BABYLON.ActionManager(scene);
       square.actionManager.registerAction(
         new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
-          square.scaling = new BABYLON.Vector3(1, 1.1, 1);
-          square.material =
-            square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+          const squareObj = squares.get(`${x},${z}`);
+          if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
+            square.scaling = new BABYLON.Vector3(1, 1.1, 1);
+            square.material = highlightMaterial;
+          }
         })
       );
       square.actionManager.registerAction(
         new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
-          square.scaling = new BABYLON.Vector3(1, 1, 1);
-          square.material =
-            square.material === defaultMaterial ? highlightMaterial : defaultMaterial;
+          const squareObj = squares.get(`${x},${z}`);
+          if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
+            square.scaling = new BABYLON.Vector3(1, 1, 1);
+            square.material = defaultMaterial;
+          }
         })
       );
     }
@@ -572,27 +595,22 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
 
 export const createExtendedGrid = (scene: BABYLON.Scene): void => {
     const ground = BABYLON.MeshBuilder.CreateGround(
-        'ground',
-        { width: 1000, height: 1000 },
-        scene
+        'ground', { width: 1000, height: 1000 }, scene
     );
     const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
     groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
     ground.material = groundMaterial;
     ground.position.y = -0.1;
 
-    // Calculate the extent based on the chess board size
-    const boardStart = -1; // First label tile position
-    const boardEnd = 8;    // Last label tile position
-    const extendedSize = 20; // How far we want to extend from the board edges
+    const boardStart = -1;
+    const boardEnd = 8;
+    const extendedSize = 20;
 
-    // Create extended grid
     for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
-      
         for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
+
             const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
             const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
-            
             if (isInBoardArea && !isCornerTile) {
                 continue;
             }
@@ -602,7 +620,6 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
                 { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
                 scene
             );
-
             square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
             square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
 
@@ -613,10 +630,9 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
     }
 };
 
+/*This function is now just a wrapper that delegates to the Board class*/
 export const createInitialPieces = (scene: BABYLON.Scene): void => {
-  // This function is now just a wrapper that delegates to the Board class
-  // We create a temporary board just to use its createInitialPieces method
-  const tempBoard = new Board(scene);
+  const tempBoard = new Board(scene); // We create a temporary board just to use its createInitialPieces method
   tempBoard.createInitialPieces();
 };
 

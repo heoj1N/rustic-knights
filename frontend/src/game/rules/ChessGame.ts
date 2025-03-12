@@ -69,6 +69,8 @@ export class ChessGame {
     if (moveSuccess) {
       this.currentTurn = this.currentTurn === 'white' ? 'black' : 'white';
       this.moves.push(move);
+      // Always clear highlights after a move
+      this.board.clearHighlights();
       console.log('Move successful');
       return { valid: true };
     }
