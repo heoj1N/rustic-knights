@@ -9,8 +9,8 @@ export class Square {
   public name: string;
   private piece: Piece | null = null;
   private materials: Map<SquareHighlightState, BABYLON.StandardMaterial> = new Map();
-  private currentState: SquareHighlightState = SquareHighlightState.DEFAULT;
   private defaultMaterial: BABYLON.StandardMaterial | null = null;
+  private currentState: SquareHighlightState = SquareHighlightState.DEFAULT; // Normalize state def?
   private scene: BABYLON.Scene;
 
   constructor(mesh: AbstractMesh, name: string) {
@@ -110,16 +110,11 @@ export class Square {
     }
   }
   
-  /**
-   * Reset the square to its default state
-   */
   public resetHighlight(): void {
     this.currentState = SquareHighlightState.DEFAULT;
     if (this.defaultMaterial) {
       this.mesh.material = this.defaultMaterial;
     }
-    
-    // Also reset any scaling effects
     this.mesh.scaling = new BABYLON.Vector3(1, 1, 1);
   }
   

@@ -210,29 +210,25 @@ export const createPiece = (
   mesh.position.y = options.height / 2;
   mesh.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
   mesh.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
-  
-  // Create highlight materials for both friendly and opponent highlighting
   const friendlyHighlightMaterial = new BABYLON.StandardMaterial(
     `${type}_friendly_highlight_${x}_${z}`,
     scene
   );
-  friendlyHighlightMaterial.diffuseColor = new BABYLON.Color3(0, 0.502, 0.502); // Teal (0, 128, 128)
+  friendlyHighlightMaterial.diffuseColor = new BABYLON.Color3(0, 0.502, 0.502);
   friendlyHighlightMaterial.specularColor = new BABYLON.Color3(0.7, 1, 1);
   
   const opponentHighlightMaterial = new BABYLON.StandardMaterial(
     `${type}_opponent_highlight_${x}_${z}`,
     scene
   );
-  opponentHighlightMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2); // Red tint
+  opponentHighlightMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2);
   opponentHighlightMaterial.specularColor = new BABYLON.Color3(1, 0.6, 0.6);
   
-  // Store the piece's metadata including both highlight materials
   mesh.metadata = {
     type: 'piece',
     pieceType: type,
     isWhite: isWhite,
     initialPosition: { x, z },
-    // Store materials for different highlighting cases
     defaultMaterial: material || new BABYLON.StandardMaterial(`${type}_material`, scene),
     friendlyHighlightMaterial: friendlyHighlightMaterial,
     opponentHighlightMaterial: opponentHighlightMaterial
@@ -274,8 +270,6 @@ const setupPieceInteractions = (
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
       if (mesh !== selectedPiece) {
         mesh.scaling = new BABYLON.Vector3(1, 1.1, 1);
-        
-        // Determine if this is an opponent piece based on current turn
         const isOpponentPiece = checkIsOpponent(mesh);
         mesh.material = isOpponentPiece ? 
           opponentHighlightMaterial : friendlyHighlightMaterial;
@@ -314,9 +308,7 @@ const setupPieceInteractions = (
   );
 };
 
-// Function to determine if a piece is an opponent piece
-// This can be updated by the game controller when the turn changes
-let currentTurn: 'white' | 'black' = 'white'; // Default to white's turn
+let currentTurn: 'white' | 'black' = 'white'; // TODO: class ?
 
 export const setCurrentTurn = (turn: 'white' | 'black'): void => {
   currentTurn = turn;

@@ -6,7 +6,6 @@ import { Piece } from '../elements/Piece';
 import { Square } from '../elements/Square';
 
 export class ChessGame {
-
   private moves: Move[] = [];
   private players: Player[] = [];
   private currentTurn: 'white' | 'black' = 'white';
@@ -21,23 +20,14 @@ export class ChessGame {
     return this.currentTurn;
   }
 
-  /**
-   * Save the current game state when pausing
-   */
   public saveGameState(): void {
     this.board.saveGameState(this.currentTurn, this.moves);
   }
 
-  /**
-   * Restore the game state when resuming
-   * @returns Whether restoration was successful
-   */
   public restoreGameState(): boolean {
     const restoredTurn = this.board.restoreGameState();
     if (restoredTurn !== null) {
       this.currentTurn = restoredTurn;
-      // Note: Move history would need to be properly restored as well
-      // This is a simplification
       return true;
     }
     return false;
@@ -53,28 +43,30 @@ export class ChessGame {
 
   public makeMove(from: Piece, to: Piece | Square): MoveResult {
     const move = new Move(from, to, this.board);
+
     if (!move.isValid()) {
       console.log('Invalid move: Move validation failed');
       return { valid: false, message: 'Invalid move' };
     }
+
     if ('getColor' in from && typeof from.getColor === 'function') {
       if (this.isKingInCheck(from.getColor())) {
         console.log('Invalid move: King is in check');
         return { valid: false, message: 'Your king is in check' };
       }
     }
+
     const fromPos = from.getPosition();
     const toPos = to.getPosition();
     const moveSuccess = this.board.movePiece(fromPos, toPos);
+
     if (moveSuccess) {
+      console.log('Move successful');
       this.currentTurn = this.currentTurn === 'white' ? 'black' : 'white';
       this.moves.push(move);
-      // Always clear highlights after a move
       this.board.clearHighlights();
-      console.log('Move successful');
       return { valid: true };
     }
-    console.log('Move execution failed');
     return { valid: false, message: 'Move execution failed' };
   }
 
@@ -89,8 +81,7 @@ export class ChessGame {
   }
 
   private isKingInCheck(color: 'white' | 'black'): boolean {
-    // TODO: Implement check detection logic
+    console.log('Todo: Checking if king is in check');
     return false;
   }
 }
-

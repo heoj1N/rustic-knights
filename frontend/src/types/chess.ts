@@ -1,5 +1,4 @@
 export type ChessPieceType = 'pawn' | 'rook' | 'knight' | 'bishop' | 'queen' | 'king';
-
 export type ChessColor = 'white' | 'black';
 
 export interface ChessPiece {

@@ -48,33 +48,22 @@ npm run dev
 
 # Setup linting
 
-npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin prettier eslint-config-prettier eslint-plugin-prettier husky lint-staged
+npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin prettier eslint-config-prettier eslint-plugin-prettier husky lint-staged \
+npx husky install \
+npx husky add .husky/pre-commit "npx lint-staged" \
+npm run format:check // To check formatting without making changes \
+npm run format // To apply formatting \
+npm run lint // To check linting without fixes \
+npm run lint:fix // To automatically fix linting issues where possible \
+ npx prettier --write frontend/src/game/elements/Board.ts 
+// Format a specific file \
+npx eslint frontend/src/game/elements/Board.ts // Lint a specific file \
 
-npx husky install
-npx husky add .husky/pre-commit "npx lint-staged"
+# Todos:
 
-# To check formatting without making changes
-npm run format:check
-
-# To apply formatting
-npm run format
-
-# To check linting without fixes
-npm run lint
-
-# To automatically fix linting issues where possible
-npm run lint:fix
-
-# Format a specific file
-npx prettier --write frontend/src/game/elements/Board.ts
-
-# Lint a specific file
-npx eslint frontend/src/game/elements/Board.ts --fix
-
-Todos:
--- GameScene l.100
--- Docstring Doc generation framework for ts?
--- handleSquareSelection
--- Pause not working
--- Mobile View?
+-- GameScene l.100 \
+-- Docstring Doc generation framework for ts? \
+-- handleSquareSelection \
+-- Pause not working \
+-- Mobile View? \
 -- pre-commit hook linter

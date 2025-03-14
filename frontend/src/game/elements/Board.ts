@@ -12,8 +12,15 @@ export class Board {
   private scene: Scene;
   private piecesByType: Map<ChessPieceType, Map<string, Piece>> = new Map();
   private materials: Map<string, BABYLON.StandardMaterial> = new Map();
+
+  // TODO: export to types?
   private savedState: {
-    pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[];
+    pieces: { 
+      position: Position; 
+      type: ChessPieceType; 
+      isWhite: boolean; 
+      meshPosition: BABYLON.Vector3 
+    }[];
     currentTurn: 'white' | 'black';
     moveHistory: any[];
   } | null = null;
@@ -159,14 +166,22 @@ export class Board {
 
   public getSquarePosition(mesh: AbstractMesh): Position {
     let match;
-    if (this.isPiece(mesh)) {
+    // First try to get position from piece's metadata
+    if (this.isPiece(mesh) && mesh.metadata && mesh.metadata.piece) {
+      // If the mesh has a piece reference in its metadata, use that
+      const piece = mesh.metadata.piece as Piece;
+      return piece.getPosition();
+    } 
+    // Fallback to extracting from mesh name
+    else if (this.isPiece(mesh)) {
       match = mesh.name.match(/^(?:pawn|rook|knight|bishop|queen|king)_(\d+)_(\d+)/);
       if (match) {
         const [, x, y] = match;
         console.log(`Found position from piece name: x=${x}, y=${y}`);
         return { x: Number(x), y: Number(y) };
       }
-    } else if (mesh.name.startsWith('square_')) {
+    } 
+    else if (mesh.name.startsWith('square_')) {
       match = mesh.name.match(/^square_(\d+)_(\d+)/);
       if (match) {
         const [, x, y] = match;
@@ -241,33 +256,35 @@ export class Board {
   public movePiece(fromPos: Position, toPos: Position): boolean {
     const fromSquare = this.getSquare(fromPos);
     const toSquare = this.getSquare(toPos);
-    if (!fromSquare || !toSquare) return false;
+    if (!fromSquare || !toSquare) 
+      return false;
+
     const piece = fromSquare.getPiece();
-    if (!piece) return false;
+    if (!piece) 
+      return false;
+
     const capturedPiece = toSquare.getPiece();
-    if (capturedPiece) this.removePiece(capturedPiece);
+    if (capturedPiece) 
+      this.removePiece(capturedPiece);
+
     fromSquare.setPiece(null);
     toSquare.setPiece(piece);
+    piece.setPosition(toPos);
     return true;
   }
 
   public removePiece(piece: Piece): void {
-    // Remove the piece from the board
-    // This might involve hiding the mesh or removing it from the scene
+    // TODO hiding the mesh or removing it from the scene
     const mesh = piece.getMesh();
     if (mesh) {
-      mesh.setEnabled(false); // Hide the piece instead of destroying it
-      // Or mesh.dispose(); // If you want to completely remove it
+      // mesh.setEnabled(false);
+      mesh.dispose(); // completely remove it
     }
   }
 
   public createInitialPieces(): void {
     console.log('Creating initial pieces');
-    
-    // Create shared materials for each piece type and color
     this.createPieceMaterials();
-    
-    // Define the initial board layout
     const initialLayout: [ChessPieceType, boolean, number, number][] = [
       // White pieces (back row and pawns)
       ['rook', true, 0, 0],
@@ -278,10 +295,7 @@ export class Board {
       ['bishop', true, 5, 0],
       ['knight', true, 6, 0],
       ['rook', true, 7, 0],
-      
-      // White pawns
       ...Array(8).fill(0).map((_, i) => ['pawn', true, i, 1] as [ChessPieceType, boolean, number, number]),
-      
       // Black pieces (back row and pawns)
       ['rook', false, 0, 7],
       ['knight', false, 1, 7],
@@ -291,8 +305,6 @@ export class Board {
       ['bishop', false, 5, 7],
       ['knight', false, 6, 7],
       ['rook', false, 7, 7],
-      
-      // Black pawns
       ...Array(8).fill(0).map((_, i) => ['pawn', false, i, 6] as [ChessPieceType, boolean, number, number])
     ];
     
@@ -323,12 +335,10 @@ export class Board {
     const pieceTypes: ChessPieceType[] = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
     
     for (const type of pieceTypes) {
-      // White pieces
       const whiteMaterial = new BABYLON.StandardMaterial(`${type}_white_material`, this.scene);
       whiteMaterial.diffuseColor = COLORS.WHITE;
       this.materials.set(`${type}_white`, whiteMaterial);
       
-      // Black pieces
       const blackMaterial = new BABYLON.StandardMaterial(`${type}_black_material`, this.scene);
       blackMaterial.diffuseColor = COLORS.BLACK;
       this.materials.set(`${type}_black`, blackMaterial);
@@ -377,9 +387,6 @@ export class Board {
     }
   }
 
-  /**
-   * Save the current board state when pausing the game
-   */
   public saveGameState(currentTurn: 'white' | 'black', moveHistory: any[] = []): void {
     const pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[] = [];
     
@@ -412,9 +419,6 @@ export class Board {
       console.warn('No saved game state to restore');
       return null;
     }
-    
-    console.log('Restoring game state:', this.savedState);
-    
     this.squares.forEach(square => {
       if (square.getPiece()) {
         square.setPiece(null);
@@ -423,7 +427,6 @@ export class Board {
     
     for (const pieceData of this.savedState.pieces) {
       const { position, type, isWhite, meshPosition } = pieceData;
-      
       const square = this.getSquare(position);
       if (square) {
         const meshName = `${type}_${position.x}_${position.y}`;
@@ -432,13 +435,9 @@ export class Board {
         if (!mesh) {
           mesh = createPiece(type, isWhite, position.x, position.y, this.scene);
         }
-        
-        // Restore mesh position
         mesh.position.x = meshPosition.x;
         mesh.position.y = meshPosition.y;
         mesh.position.z = meshPosition.z;
-        
-        // Create piece and assign to square
         const piece = new Piece(mesh, position, isWhite, type);
         square.setPiece(piece);
       }
@@ -452,21 +451,16 @@ export class Board {
   }
 
   public highlightValidMoves(piece: Piece): void {
-    // Clear any existing highlights first
+    
     this.clearHighlights();
-    
-    // Get valid moves for this piece
     const validMoves = piece.getValidMoves(this);
-    console.log(`Found ${validMoves.length} valid moves for ${piece.getType()} at ${piece.getPosition().x},${piece.getPosition().y}`);
-    
-    // Highlight the selected piece's square
     const piecePos = piece.getPosition();
     const pieceSquare = this.getSquare(piecePos);
+    
     if (pieceSquare) {
       pieceSquare.setHighlightState(SquareHighlightState.SELECTED);
     }
     
-    // Highlight each valid move square
     validMoves.forEach(position => {
       const square = this.getSquare(position);
       if (square) {
@@ -630,9 +624,7 @@ export const createExtendedGrid = (scene: BABYLON.Scene): void => {
     }
 };
 
-/*This function is now just a wrapper that delegates to the Board class*/
 export const createInitialPieces = (scene: BABYLON.Scene): void => {
   const tempBoard = new Board(scene); // We create a temporary board just to use its createInitialPieces method
   tempBoard.createInitialPieces();
 };
-
