@@ -32,5 +32,6 @@ export enum SquareHighlightState {
   VALID_MOVE,
   LAST_MOVE,
   CHECK,
-  ENDANGERED
+  ENDANGERED,
+  CONTOUR
 }

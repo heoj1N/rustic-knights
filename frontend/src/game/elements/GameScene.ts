@@ -39,7 +39,6 @@ export class GameScene {
     this.scene = this.createScene();
     this.board = new Board(this.scene);
     
-    // Add the board to scene metadata for access from other components
     if (!this.scene.metadata) {
       this.scene.metadata = {};
     }
@@ -89,8 +88,6 @@ export class GameScene {
 
   private handlePieceSelection(mesh: BABYLON.AbstractMesh): void {
     console.log('handlePieceSelection', mesh);
-    
-    // Always clear highlights at the beginning of selection
     this.board.clearAllHighlights();
     
     // If a move was made and player is trying to select the same piece again
@@ -177,25 +174,17 @@ export class GameScene {
       return;
     }
 
-    // Store the captured piece before making the move
     const capturedPiece = toSquare.getPiece();
-    
-    // Clear highlights before making the move
     this.board.clearAllHighlights();
-    
     const result = this.chessGame.makeMove(fromPiece, toSquare);
     
     if (result.valid) {
-      // Mark that a move was made this turn - prevents immediate rehighlighting
       this.moveMadeThisTurn = true;
       console.log('Move made this turn: setting moveMadeThisTurn = true');
       
-      // Handle captured piece if there was one
       if (capturedPiece) {
-        // Use board's removePiece method to properly clean up the captured piece
         this.board.removePiece(capturedPiece);
         
-        // Update score when a piece is captured
         if (capturedPiece.getColor() === 'white') {
           this.updateGameState({ 
             blackScore: this.gameState.blackScore + this.getPieceValue(capturedPiece.getType()) 

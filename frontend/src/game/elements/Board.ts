@@ -56,37 +56,32 @@ export class Board {
         const name = `square_${x}_${z}`;
         const square = BABYLON.MeshBuilder.CreateBox(
           name, 
-          { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE }, 
+          { width: SQUARE_SIZE, height: 0.3, depth: SQUARE_SIZE }, 
           this.scene
         );
         const squareObj = new Square(square, name);
         const key = `${x},${z}`;
         this.squares.set(key, squareObj);
         square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+        square.position.y = 0.15; // Center the square vertically
         square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
         const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, this.scene);
         defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
-        const highlightMaterial = new BABYLON.StandardMaterial(`square_highlight_${x}_${z}`, this.scene);
-        highlightMaterial.diffuseColor =
-          (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE.scale(1.3) : COLORS.DARK_SQUARE.scale(1.3);
-        highlightMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.1);
         square.material = defaultMaterial;
         square.actionManager = new BABYLON.ActionManager(this.scene);
         square.actionManager.registerAction(
           new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
             const squareObj = this.squares.get(`${x},${z}`);
             if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
-              square.scaling = new BABYLON.Vector3(1, 1.1, 1);
-              square.material = highlightMaterial;
+              squareObj.setHighlightState(SquareHighlightState.HOVER);
             }
           })
         );
         square.actionManager.registerAction(
           new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
             const squareObj = this.squares.get(`${x},${z}`);
-            if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
-              square.scaling = new BABYLON.Vector3(1, 1, 1);
-              square.material = defaultMaterial;
+            if (squareObj && squareObj.getHighlightState() === SquareHighlightState.HOVER) {
+              squareObj.setHighlightState(SquareHighlightState.DEFAULT);
             }
           })
         );
@@ -389,7 +384,7 @@ export class Board {
     // Calculate the extent based on the chess board size
     const boardStart = -1; // First label tile position
     const boardEnd = 8;    // Last label tile position
-    const extendedSize = 20; // How far we want to extend from the board edges
+    const extendedSize = 5; // How far we want to extend from the board edges
 
     // Create extended grid
     for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
@@ -480,8 +475,14 @@ export class Board {
     return this.savedState !== null;
   }
 
+  public clearHighlights(): void {
+    this.highlightedSquares.forEach(square => {
+      square.setHighlightState(SquareHighlightState.DEFAULT);
+    });
+    this.highlightedSquares = [];
+  }
+
   public highlightValidMoves(piece: Piece): void {
-    
     this.clearHighlights();
     const validMoves = piece.getValidMoves(this);
     const piecePos = piece.getPosition();
@@ -491,14 +492,6 @@ export class Board {
     if (pieceSquare) {
       pieceSquare.setHighlightState(SquareHighlightState.SELECTED);
       this.highlightedSquares.push(pieceSquare);
-      
-      const mesh = pieceSquare.getMesh();
-      if (mesh) {
-        const material = new BABYLON.StandardMaterial('selected_square', this.scene);
-        material.diffuseColor = COLORS.SELECTED_HIGHLIGHT;
-        material.emissiveColor = COLORS.SELECTED_HIGHLIGHT.scale(0.3); // Add glow effect
-        mesh.material = material;
-      }
     }
     
     // Highlight valid moves and pieces in the path
@@ -506,58 +499,23 @@ export class Board {
       const square = this.getSquare(position);
       if (square) {
         const targetPiece = square.getPiece();
-        const mesh = square.getMesh();
         
-        if (mesh) {
-          const material = new BABYLON.StandardMaterial(
-            targetPiece ? 'piece_square' : 'valid_move_square', 
-            this.scene
-          );
-          
-          if (targetPiece) {
-            if (targetPiece.getColor() === piece.getColor()) {
-              // Friendly piece - not a valid move, don't highlight
-              return;
-            } else {
-              // Enemy piece that can be captured - always highlight red
-              material.diffuseColor = COLORS.ENDANGERED_HIGHLIGHT;
-              material.emissiveColor = COLORS.ENDANGERED_HIGHLIGHT.scale(0.3);
-              square.setHighlightState(SquareHighlightState.ENDANGERED);
-            }
+        if (targetPiece) {
+          if (targetPiece.getColor() === piece.getColor()) {
+            // Friendly piece - not a valid move, don't highlight
+            return;
           } else {
-            // Empty square - highlight green
-            material.diffuseColor = COLORS.VALID_MOVE_HIGHLIGHT;
-            material.emissiveColor = COLORS.VALID_MOVE_HIGHLIGHT.scale(0.3);
-            square.setHighlightState(SquareHighlightState.VALID_MOVE);
+            // Enemy piece that can be captured
+            square.setHighlightState(SquareHighlightState.ENDANGERED);
           }
-          
-          mesh.material = material;
-          this.highlightedSquares.push(square);
+        } else {
+          // Empty square - highlight as valid move
+          square.setHighlightState(SquareHighlightState.VALID_MOVE);
         }
+        
+        this.highlightedSquares.push(square);
       }
     });
-  }
-  
-  public clearHighlights(): void {
-
-    this.highlightedSquares.forEach(square => {
-      const mesh = square.getMesh();
-      if (mesh) {
-        const pos = this.getSquarePosition(mesh);
-        const defaultMaterial = new BABYLON.StandardMaterial(
-          `square_material_${pos.x}_${pos.y}`, 
-          this.scene
-        );
-        defaultMaterial.diffuseColor = (pos.x + pos.y) % 2 === 0 ? 
-          COLORS.LIGHT_SQUARE : 
-          COLORS.DARK_SQUARE;
-        mesh.material = defaultMaterial;
-        mesh.scaling = new BABYLON.Vector3(1, 1, 1);
-      }
-      square.setHighlightState(SquareHighlightState.DEFAULT);
-    });
-
-    this.highlightedSquares = [];
   }
   
   public isValidMoveSquare(position: Position): boolean {
@@ -690,11 +648,12 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   for (let x = 0; x < BOARD_SIZE; x++) {
     for (let z = 0; z < BOARD_SIZE; z++) {
       const name = `square_${x}_${z}`;
-      const square = BABYLON.MeshBuilder.CreateBox(name, { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE }, scene);
+      const square = BABYLON.MeshBuilder.CreateBox(name, { width: SQUARE_SIZE, height: 0.3, depth: SQUARE_SIZE }, scene);
       const squareObj = new Square(square, name);
       const key = `${x},${z}`;
       squares.set(key, squareObj);
       square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+      square.position.y = 0.15; // Center the square vertically
       square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
       const defaultMaterial = new BABYLON.StandardMaterial(`square_material_${x}_${z}`, scene);
       defaultMaterial.diffuseColor = (x + z) % 2 === 0 ? COLORS.LIGHT_SQUARE : COLORS.DARK_SQUARE;
@@ -708,17 +667,15 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
         new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
           const squareObj = squares.get(`${x},${z}`);
           if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
-            square.scaling = new BABYLON.Vector3(1, 1.1, 1);
-            square.material = highlightMaterial;
+            squareObj.setHighlightState(SquareHighlightState.HOVER);
           }
         })
       );
       square.actionManager.registerAction(
         new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
           const squareObj = squares.get(`${x},${z}`);
-          if (squareObj && squareObj.getHighlightState() === SquareHighlightState.DEFAULT) {
-            square.scaling = new BABYLON.Vector3(1, 1, 1);
-            square.material = defaultMaterial;
+          if (squareObj && squareObj.getHighlightState() === SquareHighlightState.HOVER) {
+            squareObj.setHighlightState(SquareHighlightState.DEFAULT);
           }
         })
       );
@@ -778,42 +735,42 @@ export const createChessBoard = (scene: BABYLON.Scene): Board => {
   return board;
 };
 
-export const createExtendedGrid = (scene: BABYLON.Scene): void => {
-    const ground = BABYLON.MeshBuilder.CreateGround(
-        'ground', { width: 1000, height: 1000 }, scene
-    );
-    const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
-    groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-    ground.material = groundMaterial;
-    ground.position.y = -0.1;
+// export const createExtendedGrid = (scene: BABYLON.Scene): void => {
+//     const ground = BABYLON.MeshBuilder.CreateGround(
+//         'ground', { width: 1000, height: 1000 }, scene
+//     );
+//     const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
+//     groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+//     ground.material = groundMaterial;
+//     ground.position.y = -0.1;
 
-    const boardStart = -1;
-    const boardEnd = 8;
-    const extendedSize = 20;
+//     const boardStart = -1;
+//     const boardEnd = 8;
+//     const extendedSize = 5;
 
-    for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
-        for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
+//     for (let x = boardStart - extendedSize; x < boardEnd + extendedSize; x++) {
+//         for (let z = boardStart - extendedSize; z < boardEnd + extendedSize; z++) {
 
-            const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
-            const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
-            if (isInBoardArea && !isCornerTile) {
-                continue;
-            }
+//             const isCornerTile = (x === -1 || x === 8) && (z === -1 || z === 8);
+//             const isInBoardArea = x >= boardStart && x <= boardEnd && z >= boardStart && z <= boardEnd;
+//             if (isInBoardArea && !isCornerTile) {
+//                 continue;
+//             }
 
-            const square = BABYLON.MeshBuilder.CreateBox(
-                `extended_square_${x}_${z}`,
-                { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
-                scene
-            );
-            square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
-            square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+//             const square = BABYLON.MeshBuilder.CreateBox(
+//                 `extended_square_${x}_${z}`,
+//                 { width: SQUARE_SIZE, height: 0.1, depth: SQUARE_SIZE },
+//                 scene
+//             );
+//             square.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
+//             square.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
 
-            const material = new BABYLON.StandardMaterial(`extended_square_material_${x}_${z}`, scene);
-            material.diffuseColor = (x + z) % 2 === 0 ? COLORS.EXTENDED_LIGHT : COLORS.EXTENDED_DARK;
-            square.material = material;
-        }
-    }
-};
+//             const material = new BABYLON.StandardMaterial(`extended_square_material_${x}_${z}`, scene);
+//             material.diffuseColor = (x + z) % 2 === 0 ? COLORS.EXTENDED_LIGHT : COLORS.EXTENDED_DARK;
+//             square.material = material;
+//         }
+//     }
+// };
 
 export const createInitialPieces = (scene: BABYLON.Scene): void => {
   const tempBoard = new Board(scene); // We create a temporary board just to use its createInitialPieces method

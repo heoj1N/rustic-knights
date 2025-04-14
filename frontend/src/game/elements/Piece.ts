@@ -4,6 +4,7 @@ import { BOARD_OFFSET, COLORS, SQUARE_SIZE } from '../../util/constants';
 import { ChessPieceType, Position } from '../../types/chess';
 import { Board } from './Board';
 import { Move } from '../rules/Move';
+import { createCustomMesh } from '../meshes';
 
 export let selectedPiece: BABYLON.Mesh | null = null;
 
@@ -31,9 +32,14 @@ export class Piece {
     this.type = type;
     this.color = isWhite ? 'white' : 'black';
     
+    // Update mesh metadata to include piece reference and preserve existing metadata
     mesh.metadata = {
+      ...mesh.metadata,
       type: 'piece',
-      piece: this
+      piece: this,
+      pieceType: type,
+      isWhite: isWhite,
+      position: position
     };
   }
 
@@ -98,118 +104,98 @@ export const createPiece = (
   const color = isWhite ? COLORS.WHITE : COLORS.BLACK;
   const options = getPieceMeshOptions(type);
   
-  // Variables for crown features - declared outside case blocks
-  let crossMesh: BABYLON.Mesh;
-  let crossbarMesh: BABYLON.Mesh;
-  let crown: BABYLON.Mesh;
-  
-  // Create material for the piece
+  // Create material for the piece if not provided
   const pieceMaterial = material || new BABYLON.StandardMaterial(`${type}_material`, scene);
   if (!material) {
     pieceMaterial.diffuseColor = color;
   }
   
-  switch (type) {
-    case 'pawn':
-    case 'rook':
-      mesh = BABYLON.MeshBuilder.CreateCylinder(
-        `${type}_${x}_${z}`,
-        options,
-        scene
-      );
-      mesh.material = pieceMaterial;
-      break;
-    case 'king':
-    case 'queen':
-      // Create the base cylinder for king/queen
-      mesh = BABYLON.MeshBuilder.CreateCylinder(
-        `${type}_${x}_${z}`,
-        options,
-        scene
-      );
-      
-      // Apply material to main piece
-      mesh.material = pieceMaterial;
-      
-      // Add crown features based on piece type
-      if (type === 'king') {
-        // King has a cross-shaped crown
-        crossMesh = BABYLON.MeshBuilder.CreateBox(
-          `${type}_cross_${x}_${z}`,
-          { width: 0.15, height: 0.3, depth: 0.15 },
+  // Try to create custom mesh first
+  const customMesh = createCustomMesh(type, scene, isWhite ? 'white' : 'black', { x, y: z });
+  if (customMesh) {
+    mesh = customMesh;
+  } else {
+    // Fallback to basic shapes for other pieces
+    switch (type) {
+      case 'pawn':
+        mesh = BABYLON.MeshBuilder.CreateCylinder(
+          `${type}_${x}_${z}`,
+          { height: options.height, diameter: 0.3 },
+          scene
+        );
+        break;
+      case 'queen': {
+        // Create the base cylinder for queen
+        mesh = BABYLON.MeshBuilder.CreateCylinder(
+          `${type}_${x}_${z}`,
+          options,
           scene
         );
         
-        // Position the cross on top of the cylinder
-        crossMesh.position.y = options.height / 2 + 0.15;
-        crossMesh.parent = mesh;
-        crossMesh.material = pieceMaterial;
-        
-        // Add a horizontal bar for the cross
-        crossbarMesh = BABYLON.MeshBuilder.CreateBox(
-          `${type}_crossbar_${x}_${z}`,
-          { width: 0.3, height: 0.1, depth: 0.15 },
-          scene
-        );
-        crossbarMesh.position.y = options.height / 2 + 0.1;
-        crossbarMesh.parent = mesh;
-        crossbarMesh.material = pieceMaterial;
-        
-      } else {
-        // Queen has a crown with points
+        // Add crown features
         for (let i = 0; i < 5; i++) {
-          crown = BABYLON.MeshBuilder.CreateCylinder(
+          const crown = BABYLON.MeshBuilder.CreateCylinder(
             `${type}_crown_point_${i}_${x}_${z}`,
             { height: 0.25, diameterTop: 0.05, diameterBottom: 0.12 },
             scene
           );
           
-          // Position the points in a circle on top of the queen
           const angle = (i / 5) * Math.PI * 2;
           const radius = 0.15;
           crown.position.x = Math.cos(angle) * radius;
           crown.position.z = Math.sin(angle) * radius;
           crown.position.y = options.height / 2 + 0.1;
           crown.parent = mesh;
-          
-          // Apply the same material as the main piece
           crown.material = pieceMaterial;
         }
+        break;
       }
-      break;
-    case 'knight':
-      mesh = BABYLON.MeshBuilder.CreateBox(
-        `${type}_${x}_${z}`,
-        { height: options.height, width: 0.5, depth: 0.5 },
-        scene
-      );
-      mesh.material = pieceMaterial;
-      break;
-    case 'bishop':
-      // Use correct cylinder with zero top diameter instead of cone
-      mesh = BABYLON.MeshBuilder.CreateCylinder(
-        `${type}_${x}_${z}`,
-        { 
-          height: options.height, 
-          diameterTop: 0.1, 
-          diameterBottom: options.diameterBottom as number 
-        },
-        scene
-      );
-      mesh.material = pieceMaterial;
-      break;
-    default:
-      mesh = BABYLON.MeshBuilder.CreateCylinder(
-        `${type}_${x}_${z}`,
-        { height: 1, diameter: 0.5 },
-        scene
-      );
-      mesh.material = pieceMaterial;
+      case 'king': {
+        // Create the base cylinder for king
+        mesh = BABYLON.MeshBuilder.CreateCylinder(
+          `${type}_${x}_${z}`,
+          options,
+          scene
+        );
+        
+        // Add cross
+        const crossVertical = BABYLON.MeshBuilder.CreateBox(
+          `${type}_cross_${x}_${z}`,
+          { width: 0.15, height: 0.3, depth: 0.15 },
+          scene
+        );
+        crossVertical.position.y = options.height / 2 + 0.15;
+        crossVertical.parent = mesh;
+        
+        const crossHorizontal = BABYLON.MeshBuilder.CreateBox(
+          `${type}_crossbar_${x}_${z}`,
+          { width: 0.3, height: 0.1, depth: 0.15 },
+          scene
+        );
+        crossHorizontal.position.y = options.height / 2 + 0.1;
+        crossHorizontal.parent = mesh;
+        
+        crossVertical.material = pieceMaterial;
+        crossHorizontal.material = pieceMaterial;
+        break;
+      }
+      default:
+        mesh = BABYLON.MeshBuilder.CreateCylinder(
+          `${type}_${x}_${z}`,
+          { height: 1, diameter: 0.5 },
+          scene
+        );
+    }
   }
+
+  mesh.material = pieceMaterial;
   
-  mesh.position.y = options.height / 2;
+  // Position the piece - ensure it's grounded by setting Y to height of square
+  mesh.position.y = 0.3;  // Place on top of square (square height is 0.3)
   mesh.position.x = x - BOARD_OFFSET + SQUARE_SIZE / 2;
   mesh.position.z = z - BOARD_OFFSET + SQUARE_SIZE / 2;
+
+  // Setup highlight materials
   const friendlyHighlightMaterial = new BABYLON.StandardMaterial(
     `${type}_friendly_highlight_${x}_${z}`,
     scene
@@ -224,18 +210,19 @@ export const createPiece = (
   opponentHighlightMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2);
   opponentHighlightMaterial.specularColor = new BABYLON.Color3(1, 0.6, 0.6);
   
+  // Setup metadata
   mesh.metadata = {
     type: 'piece',
     pieceType: type,
     isWhite: isWhite,
     initialPosition: { x, z },
-    defaultMaterial: material || new BABYLON.StandardMaterial(`${type}_material`, scene),
+    defaultMaterial: pieceMaterial,
     friendlyHighlightMaterial: friendlyHighlightMaterial,
     opponentHighlightMaterial: opponentHighlightMaterial
   };
   
-  // Setup piece interactions with the new highlight system
-  setupPieceInteractions(mesh, material || new BABYLON.StandardMaterial(`${type}_material`, scene), friendlyHighlightMaterial, opponentHighlightMaterial, scene);
+  // Setup piece interactions
+  setupPieceInteractions(mesh, pieceMaterial, friendlyHighlightMaterial, opponentHighlightMaterial, scene);
   
   return mesh;
 };
@@ -243,17 +230,17 @@ export const createPiece = (
 export const getPieceMeshOptions = (type: ChessPieceType): PieceMeshOptions => {
   switch (type) {
     case 'pawn':
-      return { height: 0.75, diameter: 0.3 };
+      return { height: 0.8, diameter: 0.3 };
     case 'rook':
       return { height: 0.8, width: 0.3, depth: 0.3 };
     case 'knight':
-      return { height: 0.8, diameterTop: 0.2, diameterBottom: 0.3 };
+      return { height: 0.8, width: 0.3, depth: 0.3 };
     case 'bishop':
-      return { height: 0.9, diameter: 0.3 };
+      return { height: 0.8, diameter: 0.3 };
     case 'queen':
-      return { height: 1, diameterTop: 0.35, diameterBottom: 0.5 };
+      return { height: 0.9, diameterTop: 0.3, diameterBottom: 0.4 };
     case 'king':
-      return { height: 1.2, diameterTop: 0.4, diameterBottom: 0.6 };
+      return { height: 1.0, diameterTop: 0.35, diameterBottom: 0.45 };
   }
 };
 
@@ -265,11 +252,15 @@ const setupPieceInteractions = (
   scene: BABYLON.Scene
 ) => {
   mesh.actionManager = new BABYLON.ActionManager(scene);
+  
+  // Store the original scale when the mesh is created
+  const originalScale = mesh.scaling.clone();
 
   mesh.actionManager.registerAction(
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, () => {
       if (mesh !== selectedPiece) {
-        mesh.scaling = new BABYLON.Vector3(1, 1.1, 1);
+        // Apply hover effect while preserving original scale ratios
+        mesh.scaling = originalScale.scale(1.1);
         const isOpponentPiece = checkIsOpponent(mesh);
         mesh.material = isOpponentPiece ? 
           opponentHighlightMaterial : friendlyHighlightMaterial;
@@ -280,7 +271,8 @@ const setupPieceInteractions = (
   mesh.actionManager.registerAction(
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, () => {
       if (mesh !== selectedPiece) {
-        mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+        // Restore original scale
+        mesh.scaling = originalScale.clone();
         mesh.material = defaultMaterial;
       }
     })
@@ -290,7 +282,9 @@ const setupPieceInteractions = (
     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
       // Deselect current piece if exists
       if (selectedPiece) {
-        selectedPiece.scaling = new BABYLON.Vector3(1, 1, 1);
+        // Restore original scale of previously selected piece
+        const prevSelectedOriginalScale = selectedPiece.metadata?.originalScale || new BABYLON.Vector3(1, 1, 1);
+        selectedPiece.scaling = prevSelectedOriginalScale.clone();
         selectedPiece.material = defaultMaterial;
       }
 
@@ -308,10 +302,16 @@ const setupPieceInteractions = (
 
       // Select new piece
       selectedPiece = mesh;
-      mesh.scaling = new BABYLON.Vector3(1, 1.2, 1);
+      mesh.scaling = originalScale.scale(1.2);
       mesh.material = friendlyHighlightMaterial;
     })
   );
+
+  // Store the original scale in the mesh's metadata for future reference
+  mesh.metadata = {
+    ...mesh.metadata,
+    originalScale: originalScale.clone()
+  };
 };
 
 let currentTurn: 'white' | 'black' = 'white'; // TODO: class ?

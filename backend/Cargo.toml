@@ -23,3 +23,9 @@ bcrypt = "0.13"
 jsonwebtoken = "8.2"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
+
+# AI-related dependencies
+async-trait = "0.1"
+tch = "0.13"        # PyTorch bindings for Rust
+ndarray = "0.15"    # Efficient array operations
+rand = "0.8"        # For random number generation
