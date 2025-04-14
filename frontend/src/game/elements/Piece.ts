@@ -297,6 +297,12 @@ const setupPieceInteractions = (
       // If clicking the same piece, deselect it
       if (selectedPiece === mesh) {
         selectedPiece = null;
+        // Clear highlights when deselecting a piece
+        const scene = mesh.getScene();
+        const board = scene.metadata?.board;
+        if (board && typeof board.clearAllHighlights === 'function') {
+          board.clearAllHighlights();
+        }
         return;
       }
 

@@ -12,6 +12,7 @@ export class Board {
   private scene: Scene;
   private piecesByType: Map<ChessPieceType, Map<string, Piece>> = new Map();
   private materials: Map<string, BABYLON.StandardMaterial> = new Map();
+  private highlightedSquares: Square[] = [];
 
   // TODO: export to types?
   private savedState: {
@@ -264,21 +265,50 @@ export class Board {
       return false;
 
     const capturedPiece = toSquare.getPiece();
-    if (capturedPiece) 
+    if (capturedPiece) {
       this.removePiece(capturedPiece);
+    }
 
+    // Update the piece's mesh position to match the target square
+    const mesh = piece.getMesh();
+    if (mesh) {
+      mesh.position.x = toSquare.getMesh().position.x;
+      mesh.position.z = toSquare.getMesh().position.z;
+    }
+
+    // Update the piece's logical position and square references
     fromSquare.setPiece(null);
     toSquare.setPiece(piece);
     piece.setPosition(toPos);
+    
+    // Always clear ALL highlights after moving
+    this.clearAllHighlights();
+    
     return true;
   }
 
   public removePiece(piece: Piece): void {
-    // TODO hiding the mesh or removing it from the scene
+    // Remove piece from its current square first
+    const position = piece.getPosition();
+    const square = this.getSquare(position);
+    if (square) {
+      square.setPiece(null);
+    }
+
+    // Remove the piece from piecesByType map
+    const type = piece.getType();
+    const pieceMap = this.piecesByType.get(type);
+    if (pieceMap) {
+      pieceMap.delete(`${position.x},${position.y}`);
+    }
+
+    // Remove the mesh from the scene last
     const mesh = piece.getMesh();
     if (mesh) {
-      // mesh.setEnabled(false);
-      mesh.dispose(); // completely remove it
+      // Clean up any metadata
+      mesh.metadata = null;
+      // Dispose of the mesh
+      mesh.dispose();
     }
   }
 
@@ -457,22 +487,77 @@ export class Board {
     const piecePos = piece.getPosition();
     const pieceSquare = this.getSquare(piecePos);
     
+    // Highlight selected piece's square
     if (pieceSquare) {
       pieceSquare.setHighlightState(SquareHighlightState.SELECTED);
+      this.highlightedSquares.push(pieceSquare);
+      
+      const mesh = pieceSquare.getMesh();
+      if (mesh) {
+        const material = new BABYLON.StandardMaterial('selected_square', this.scene);
+        material.diffuseColor = COLORS.SELECTED_HIGHLIGHT;
+        material.emissiveColor = COLORS.SELECTED_HIGHLIGHT.scale(0.3); // Add glow effect
+        mesh.material = material;
+      }
     }
     
+    // Highlight valid moves and pieces in the path
     validMoves.forEach(position => {
       const square = this.getSquare(position);
       if (square) {
-        square.highlightAsValidMove();
+        const targetPiece = square.getPiece();
+        const mesh = square.getMesh();
+        
+        if (mesh) {
+          const material = new BABYLON.StandardMaterial(
+            targetPiece ? 'piece_square' : 'valid_move_square', 
+            this.scene
+          );
+          
+          if (targetPiece) {
+            if (targetPiece.getColor() === piece.getColor()) {
+              // Friendly piece - not a valid move, don't highlight
+              return;
+            } else {
+              // Enemy piece that can be captured - always highlight red
+              material.diffuseColor = COLORS.ENDANGERED_HIGHLIGHT;
+              material.emissiveColor = COLORS.ENDANGERED_HIGHLIGHT.scale(0.3);
+              square.setHighlightState(SquareHighlightState.ENDANGERED);
+            }
+          } else {
+            // Empty square - highlight green
+            material.diffuseColor = COLORS.VALID_MOVE_HIGHLIGHT;
+            material.emissiveColor = COLORS.VALID_MOVE_HIGHLIGHT.scale(0.3);
+            square.setHighlightState(SquareHighlightState.VALID_MOVE);
+          }
+          
+          mesh.material = material;
+          this.highlightedSquares.push(square);
+        }
       }
     });
   }
   
   public clearHighlights(): void {
-    this.squares.forEach(square => {
-      square.resetHighlight();
+
+    this.highlightedSquares.forEach(square => {
+      const mesh = square.getMesh();
+      if (mesh) {
+        const pos = this.getSquarePosition(mesh);
+        const defaultMaterial = new BABYLON.StandardMaterial(
+          `square_material_${pos.x}_${pos.y}`, 
+          this.scene
+        );
+        defaultMaterial.diffuseColor = (pos.x + pos.y) % 2 === 0 ? 
+          COLORS.LIGHT_SQUARE : 
+          COLORS.DARK_SQUARE;
+        mesh.material = defaultMaterial;
+        mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+      }
+      square.setHighlightState(SquareHighlightState.DEFAULT);
     });
+
+    this.highlightedSquares = [];
   }
   
   public isValidMoveSquare(position: Position): boolean {
@@ -480,6 +565,112 @@ export class Board {
     return square ? 
       square.getHighlightState() === SquareHighlightState.VALID_MOVE : 
       false;
+  }
+
+  public highlightKingInCheck(color: 'white' | 'black'): void {
+    let kingSquare: Square | undefined;
+    for (const [_, square] of this.squares) {
+      const piece = square.getPiece();
+      if (piece && piece.getType() === 'king' && piece.getColor() === color) {
+        kingSquare = square;
+        break;
+      }
+    }
+    
+    if (kingSquare) {
+      kingSquare.highlightAsCheck();
+      this.highlightedSquares.push(kingSquare);
+      console.log(`Highlighted ${color} king as in check`);
+    }
+  }
+  
+  public highlightEndangeredPiece(position: Position): void {
+    const square = this.getSquare(position);
+    
+    if (square && square.getPiece()) {
+      square.highlightAsEndangered();
+      this.highlightedSquares.push(square);
+      console.log(`Highlighted piece at ${position.x},${position.y} as endangered`);
+    }
+  }
+  
+  public findEndangeredPieces(currentTurn: 'white' | 'black'): Position[] {
+    const endangeredPositions: Position[] = [];
+    const opponentColor = currentTurn === 'white' ? 'black' : 'white';
+
+    for (const [_, square] of this.squares) {
+      const piece = square.getPiece();
+      if (piece && piece.getColor() === opponentColor) {
+        const validMoves = piece.getValidMoves(this);
+        validMoves.forEach(movePos => {
+          const targetSquare = this.getSquare(movePos);
+          if (targetSquare && targetSquare.getPiece() && 
+              targetSquare.getPiece()!.getColor() === currentTurn) {
+            endangeredPositions.push(movePos); // This is an endangered piece
+          }
+        });
+      }
+    }
+    
+    return endangeredPositions;
+  }
+
+  public isPieceEndangered(position: Position, currentTurn: 'white' | 'black'): boolean {
+    const square = this.getSquare(position);
+    if (!square || !square.getPiece()) {
+      return false;
+    }
+    
+    const pieceColor = square.getPiece()!.getColor();
+    if (pieceColor !== currentTurn) {
+      return false; // Only check pieces of the current player
+    }
+    
+    const opponentColor = currentTurn === 'white' ? 'black' : 'white';
+    for (const [_, opponentSquare] of this.squares) {
+      const piece = opponentSquare.getPiece();
+      if (piece && piece.getColor() === opponentColor) {
+        const validMoves = piece.getValidMoves(this);
+        for (const movePos of validMoves) {
+          if (movePos.x === position.x && movePos.y === position.y) {
+            return true; // This piece is endangered
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  public getSquarePositionFromPieceMesh(mesh: AbstractMesh): Position | null {
+    if (!this.isPiece(mesh)) {
+      return null;
+    }
+    
+    return this.getSquarePosition(mesh);
+  }
+  
+  public getPieceColorFromMesh(mesh: AbstractMesh): 'white' | 'black' | null {
+    if (!this.isPiece(mesh)) {
+      return null;
+    }
+    
+    return this.getPieceColor(mesh);
+  }
+  
+  public highlightValidMovesFromPosition(position: Position): void {
+    const square = this.getSquare(position);
+    if (!square || !square.getPiece()) {
+      console.log(`No piece found at position ${position.x},${position.y}`);
+      return;
+    }
+    
+    const piece = square.getPiece()!;
+    this.highlightValidMoves(piece);
+  }
+  
+  public clearAllHighlights(): void {
+    this.clearHighlights();
   }
 }
 

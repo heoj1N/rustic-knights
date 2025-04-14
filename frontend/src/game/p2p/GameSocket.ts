@@ -6,6 +6,7 @@ import {
   ServerMessage,
   Position 
 } from '../../types/types';
+import { API_URL } from '../../config.ts';
 
 export class GameSocket {
   private ws: WebSocket;
@@ -13,7 +14,8 @@ export class GameSocket {
   private onUpdateCallback: (state: GameState) => void;
 
   constructor(gameId: string, onUpdate: (state: GameState) => void) {
-    this.ws = new WebSocket(`ws://localhost:5173/ws/game/${gameId}`);
+    const wsUrl = API_URL.replace('http://', 'ws://');
+    this.ws = new WebSocket(`${wsUrl}/ws/game/${gameId}`);
     this.onUpdateCallback = onUpdate;
     this.gameState = {
       gameId,

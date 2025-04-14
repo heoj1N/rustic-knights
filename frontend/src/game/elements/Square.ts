@@ -45,10 +45,25 @@ export class Square {
     selectedMaterial.emissiveColor = new BABYLON.Color3(0.3, 0.2, 0);
     this.materials.set(SquareHighlightState.SELECTED, selectedMaterial);
     
-    // Valid move material
+    // Valid move material - blend original color with teal highlight color
     const validMoveMaterial = new BABYLON.StandardMaterial(`valid_move_${this.name}`, this.scene);
-    validMoveMaterial.diffuseColor = COLORS.VALID_MOVE_HIGHLIGHT;
-    validMoveMaterial.alpha = 0.8; // Semi-transparent
+    if (isLightSquare) {
+      // For light squares, blend with teal but keep checkerboard pattern visible
+      validMoveMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.5 + COLORS.VALID_MOVE_HIGHLIGHT.r * 0.5,
+        baseColor.g * 0.3 + COLORS.VALID_MOVE_HIGHLIGHT.g * 0.7,
+        baseColor.b * 0.3 + COLORS.VALID_MOVE_HIGHLIGHT.b * 0.7
+      );
+    } else {
+      // For dark squares, brighten them and add teal
+      validMoveMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.3 + COLORS.VALID_MOVE_HIGHLIGHT.r * 0.3, 
+        baseColor.g * 0.3 + COLORS.VALID_MOVE_HIGHLIGHT.g * 0.7,
+        baseColor.b * 0.3 + COLORS.VALID_MOVE_HIGHLIGHT.b * 0.7
+      );
+    }
+    // Add slight emissive to make it "glow" subtly
+    validMoveMaterial.emissiveColor = COLORS.VALID_MOVE_HIGHLIGHT.scale(0.3);
     this.materials.set(SquareHighlightState.VALID_MOVE, validMoveMaterial);
     
     // Last move material
@@ -56,11 +71,41 @@ export class Square {
     lastMoveMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.6, 0.9); // Blue
     this.materials.set(SquareHighlightState.LAST_MOVE, lastMoveMaterial);
     
-    // Check material
+    // Check material (purple for king in check)
     const checkMaterial = new BABYLON.StandardMaterial(`check_${this.name}`, this.scene);
-    checkMaterial.diffuseColor = new BABYLON.Color3(0.9, 0.1, 0.1); // Red
-    checkMaterial.emissiveColor = new BABYLON.Color3(0.3, 0, 0);
+    if (isLightSquare) {
+      checkMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.3 + COLORS.CHECK_HIGHLIGHT.r * 0.7,
+        baseColor.g * 0.3 + COLORS.CHECK_HIGHLIGHT.g * 0.7,
+        baseColor.b * 0.3 + COLORS.CHECK_HIGHLIGHT.b * 0.7
+      );
+    } else {
+      checkMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.2 + COLORS.CHECK_HIGHLIGHT.r * 0.6,
+        baseColor.g * 0.2 + COLORS.CHECK_HIGHLIGHT.g * 0.6,
+        baseColor.b * 0.2 + COLORS.CHECK_HIGHLIGHT.b * 0.6
+      );
+    }
+    checkMaterial.emissiveColor = COLORS.CHECK_HIGHLIGHT.scale(0.3);
     this.materials.set(SquareHighlightState.CHECK, checkMaterial);
+    
+    // Endangered material (red for pieces that can be captured)
+    const endangeredMaterial = new BABYLON.StandardMaterial(`endangered_${this.name}`, this.scene);
+    if (isLightSquare) {
+      endangeredMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.3 + COLORS.ENDANGERED_HIGHLIGHT.r * 0.7,
+        baseColor.g * 0.5 + COLORS.ENDANGERED_HIGHLIGHT.g * 0.5,
+        baseColor.b * 0.5 + COLORS.ENDANGERED_HIGHLIGHT.b * 0.5
+      );
+    } else {
+      endangeredMaterial.diffuseColor = new BABYLON.Color3(
+        baseColor.r * 0.2 + COLORS.ENDANGERED_HIGHLIGHT.r * 0.6,
+        baseColor.g * 0.3 + COLORS.ENDANGERED_HIGHLIGHT.g * 0.3,
+        baseColor.b * 0.3 + COLORS.ENDANGERED_HIGHLIGHT.b * 0.3
+      );
+    }
+    endangeredMaterial.emissiveColor = COLORS.ENDANGERED_HIGHLIGHT.scale(0.3);
+    this.materials.set(SquareHighlightState.ENDANGERED, endangeredMaterial);
   }
 
   public getName(): string {
@@ -105,17 +150,34 @@ export class Square {
   public setHighlightState(state: SquareHighlightState): void {
     this.currentState = state;
     const material = this.materials.get(state);
-    if (material) {
+    if (this.mesh && material) {
       this.mesh.material = material;
+    } else if (this.mesh && this.defaultMaterial && state === SquareHighlightState.DEFAULT) {
+      this.mesh.material = this.defaultMaterial;
     }
   }
   
   public resetHighlight(): void {
     this.currentState = SquareHighlightState.DEFAULT;
-    if (this.defaultMaterial) {
-      this.mesh.material = this.defaultMaterial;
+    if (this.mesh && this.defaultMaterial) {
+      // Ensure we use a clone of the default material to avoid reference issues
+      const defaultMaterial = this.defaultMaterial.clone(`default_${this.name}_clone`);
+      this.mesh.material = defaultMaterial;
+      // Extra safety to ensure proper material reset
+      this.mesh.material.alpha = 1.0;
+      
+      // Only set emissiveColor on StandardMaterial
+      if (this.mesh.material instanceof BABYLON.StandardMaterial) {
+        this.mesh.material.emissiveColor = new BABYLON.Color3(0, 0, 0);
+      }
     }
-    this.mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+    // Reset scaling
+    if (this.mesh) {
+      this.mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+    }
+    
+    // Log the reset for debugging
+    console.log(`Reset highlight for square ${this.name}`);
   }
   
   public getHighlightState(): SquareHighlightState {
@@ -124,6 +186,17 @@ export class Square {
   
   public highlightAsValidMove(): void {
     this.setHighlightState(SquareHighlightState.VALID_MOVE);
+    console.log(`Highlighting square ${this.name} as valid move`);
+  }
+  
+  public highlightAsCheck(): void {
+    this.setHighlightState(SquareHighlightState.CHECK);
+    console.log(`Highlighting square ${this.name} as check (purple)`);
+  }
+  
+  public highlightAsEndangered(): void {
+    this.setHighlightState(SquareHighlightState.ENDANGERED);
+    console.log(`Highlighting square ${this.name} as endangered (red)`);
   }
   
   public getDefaultMaterial(): BABYLON.StandardMaterial | null {

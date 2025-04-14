@@ -14,6 +14,7 @@ export class Move {
     this.board = board;
   }
   
+  // Getters
 
   public getFromPiece(): Piece {
     return this.from;
@@ -41,22 +42,6 @@ export class Move {
       const match = piece.getName().match(/^(pawn|rook|knight|bishop|queen|king)_/);
       return match ? match[1] : '';
     }
-    
-    // Delete?
-    if ('getMesh' in piece && typeof piece.getMesh === 'function') {
-      const mesh = piece.getMesh();
-      if (mesh && mesh.name) {
-        const match = mesh.name.match(/^(pawn|rook|knight|bishop|queen|king)_/);
-        return match ? match[1] : '';
-      }
-    }
-    
-    // Delete?
-    if ('name' in piece && typeof piece.name === 'string') {
-      const match = piece.name.match(/^(pawn|rook|knight|bishop|queen|king)_/);
-      return match ? match[1] : '';
-    }
-    
     return '';
   }
 
@@ -77,6 +62,7 @@ export class Move {
     return null;
   }
 
+  // Validation
 
   public isWhiteTurn(): boolean {
     if (!this.from) return false;
@@ -102,8 +88,7 @@ export class Move {
   public isOnTurn(_turnNumber: number, _isWhiteMove: boolean): boolean {
     return this.isWhiteTurn() === _isWhiteMove;
   }
-
-
+  
   public isValid(): boolean {
     const piece = this.getFromPiece();
     if (!piece) return false;
@@ -130,31 +115,18 @@ export class Move {
     console.log('Validating pawn move...');
     const piece = this.getFromPiece();
     if (!piece) return false;
-    console.log('piece', piece);  
     const isWhite = this.getPieceColor(piece) === 'white';
     const fromPos = this.getFromPosition();
     const toPos = this.getToPosition();
     const direction = isWhite ? 1 : -1;
-    console.log('Pawn move:', {
-      isWhite,
-      fromPos,
-      toPos,
-      direction
-    });
     
     // CASE 1: Forward move (one square)
     if (fromPos.x === toPos.x && toPos.y === fromPos.y + direction) {
-      console.log('CASE 1');  
-      // In forward moves, there should be no piece to capture
       const targetPiece = this.getCapturedPiece();
-      // If no target object, valid move
       if (!targetPiece) return true;
-      // If target is a Square
       if (this.isSquare(targetPiece)) {
-        // The square must be empty for a forward move
         return !(targetPiece as any).getPiece();
       }
-      // If target is any other object (like a piece), can't move forward
       return false;
     }
     
@@ -162,70 +134,49 @@ export class Move {
     const isInitialPosition = (isWhite && fromPos.y === 1) || (!isWhite && fromPos.y === 6);
     if (fromPos.x === toPos.x && isInitialPosition && 
         toPos.y === fromPos.y + (2 * direction)) {  
-      console.log('CASE 2: Initial double move');
-      
       // First check if destination is empty
       const targetPiece = this.getCapturedPiece();
-      console.log('targetPiece at destination:', targetPiece);
-      
       if (targetPiece) {
-        console.log('Destination is not empty, invalid double move');
         if (this.isSquare(targetPiece)) {
           const squarePiece = (targetPiece as any).getPiece();
           if (squarePiece) {
-            console.log('Destination square has a piece');
             return false;
           }
         } else {
           return false; // If target is directly a piece, invalid move
         }
       }
-      
       // Then check the middle square - it must be empty
       const middleY = fromPos.y + direction;
       const middlePos = { x: fromPos.x, y: middleY };
-      console.log(`Checking middle square at ${middlePos.x},${middlePos.y} for pawn double move`);
-      
       const middleSquare = this.board.getSquare(middlePos);
       if (!middleSquare) {
-        console.log('Middle square does not exist, invalid double move');
         return false;
       }
-      
       const middlePiece = middleSquare.getPiece();
       if (middlePiece) {
-        console.log('Path blocked at middle square:', middlePiece);
         return false;
       }
-      
-      console.log('Path is clear for double move');
       return true;
     }
     
     // CASE 3: Diagonal capture
     if (Math.abs(toPos.x - fromPos.x) === 1 && toPos.y === fromPos.y + direction) {
       const targetObject = this.getCapturedPiece();
-      console.log('CASE 3');
-      // Must be capturing something - diagonal moves without captures are invalid
       if (!targetObject) return false;
       // If targeting a Square
       if (this.isSquare(targetObject)) {
         const squarePiece = (targetObject as any).getPiece();
-        // Must have a piece to capture
         if (!squarePiece) return false;
-        // Can only capture opponent's pieces
         return squarePiece.getColor() !== this.getPieceColor();
       }
       // If targeting a Piece directly 
       if (targetObject instanceof Piece) {
-        // Can only capture opponent's pieces
         return targetObject.getColor() !== this.getPieceColor();
       }
-      // For AbstractMesh objects, we rely on canCaptureAt helper
-      console.log('Checking capture at position:', toPos);
       return this.canCaptureAt(toPos);
     }
-    // No valid move pattern matched
+
     return false;
   }
 
@@ -252,10 +203,8 @@ export class Move {
     console.log('Validating bishop move...');
     const fromPos = this.getFromPosition();
     const toPos = this.getToPosition();
-    
     const dx = Math.abs(toPos.x - fromPos.x);
     const dy = Math.abs(toPos.y - fromPos.y);
-    
     if (dx !== dy) {
       return false;
     }
@@ -272,10 +221,8 @@ export class Move {
     console.log('Validating king move...');
     const fromPos = this.getFromPosition();
     const toPos = this.getToPosition();
-    
     const dx = Math.abs(toPos.x - fromPos.x);
     const dy = Math.abs(toPos.y - fromPos.y);
-    
     return dx <= 1 && dy <= 1 && this.canCaptureAt(toPos);
   }
 
@@ -302,12 +249,6 @@ export class Move {
       y += dy;
     }
 
-    // if (Math.abs(to.y - from.y) === 2 && from.x === to.x) {
-    //   const middleY = from.y + dy;
-    //   const middleSquare = this.board.getSquare({ x: from.x, y: middleY });
-    //   return middleSquare?.getPiece() !== null;
-    // }
-    
     return false;
   }
 
@@ -331,7 +272,8 @@ export class Move {
     return true;
   }
 
-  
+  // Notation
+
   public toNotation(turnNumber: number, isWhiteMove: boolean): string {
     return `${isWhiteMove ? `${turnNumber}. ` : ''}${this.toString()}`;
   }
