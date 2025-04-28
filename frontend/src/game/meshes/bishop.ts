@@ -1,6 +1,6 @@
-import { Scene, Vector3, MeshBuilder, Mesh, Path3D } from '@babylonjs/core';
+import { Scene, Vector3, MeshBuilder, Mesh } from '@babylonjs/core';
 
-export function createBishopMesh(scene: Scene, color: string): Mesh {
+export function createBishopMesh(scene: Scene): Mesh {
     // Create the base cylinder
     const base = MeshBuilder.CreateCylinder('bishopBase', {
         height: 0.3,

@@ -1,6 +1,6 @@
 import { Scene, Vector3, MeshBuilder, Mesh } from '@babylonjs/core';
 
-export function createKnightMesh(scene: Scene, color: string): Mesh {
+export function createKnightMesh(scene: Scene): Mesh {
     // Create the base
     const base = MeshBuilder.CreateCylinder('knightBase', {
         height: 0.1,
@@ -82,10 +82,6 @@ export function createKnightMesh(scene: Scene, color: string): Mesh {
 
     if (merged) {
         merged.name = 'knight';
-        // Rotate black pieces 180 degrees to face the opposite direction
-        if (color.toLowerCase() === 'black') {
-            merged.rotation.y = Math.PI;
-        }
     }
 
     return merged || base; // Fallback to base if merge fails

@@ -225,14 +225,16 @@ export class Board {
   public printBoardState(): void {
     console.log('=== CURRENT BOARD STATE ===');
     const boardRepresentation = Array(8).fill(null).map(() => Array(8).fill('...'));
-    this.squares.forEach((square, key) => {
+    this.squares.forEach((square) => {
       const piece = square.getPiece();
       if (piece) {
-        const [x, y] = key.split(',').map(Number);
+        const pos = square.getPosition();
+        const x = pos.x;
+        const y = pos.y;
         if (x >= 0 && x < 8 && y >= 0 && y < 8) {
           const pieceSymbol = piece.getColor() === 'white' ? 
-          piece.getType().charAt(0).toUpperCase() : piece.getType().charAt(0).toLowerCase();
-          boardRepresentation[y][x] = pieceSymbol;
+            piece.getType().toUpperCase() : piece.getType().toLowerCase();
+          boardRepresentation[y][x] = pieceSymbol.padEnd(3, ' ');
         }
       }
     });
@@ -416,7 +418,7 @@ export class Board {
     const pieces: { position: Position; type: ChessPieceType; isWhite: boolean; meshPosition: BABYLON.Vector3 }[] = [];
     
     // Collect all pieces and their current positions
-    this.squares.forEach((square, key) => {
+    this.squares.forEach((square) => {
       const piece = square.getPiece();
       if (piece) {
         const mesh = piece.getMesh();

@@ -1,6 +1,6 @@
 import { Scene, Vector3, MeshBuilder, Mesh } from '@babylonjs/core';
 
-export function createPawnMesh(scene: Scene, color: string): Mesh {
+export function createPawnMesh(scene: Scene): Mesh {
     // Create the base
     const base = MeshBuilder.CreateCylinder('pawnBase', {
         height: 0.1,

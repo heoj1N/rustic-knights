@@ -35,22 +35,22 @@ export const createCustomMesh = (
 
     switch (type) {
         case 'rook':
-            mesh = createRookMesh(scene, color);
+            mesh = createRookMesh(scene);
             break;
         case 'bishop':
-            mesh = createBishopMesh(scene, color);
+            mesh = createBishopMesh(scene);
             break;
         case 'knight':
-            mesh = createKnightMesh(scene, color);
+            mesh = createKnightMesh(scene);
             break;
         case 'pawn':
-            mesh = createPawnMesh(scene, color);
+            mesh = createPawnMesh(scene);
             break;
         case 'queen':
-            mesh = createQueenMesh(scene, color);
+            mesh = createQueenMesh(scene);
             break;
         case 'king':
-            mesh = createKingMesh(scene, color);
+            mesh = createKingMesh(scene);
             break;
     }
 

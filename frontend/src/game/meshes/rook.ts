@@ -1,6 +1,6 @@
 import { Scene, Vector3, MeshBuilder, Mesh } from '@babylonjs/core';
 
-export function createRookMesh(scene: Scene, color: string): Mesh {
+export function createRookMesh(scene: Scene): Mesh {
     // Create the base cylinder
     const base = MeshBuilder.CreateCylinder('rookBase', {
         height: 0.3,

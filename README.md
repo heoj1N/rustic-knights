@@ -6,4 +6,9 @@
   <p></p>
 </div>
 
-## Coming Soon™
+```bash
+npm install
+cd frontend
+npm run dev
+go to http://localhost:5173/
+```
